@@ -1,0 +1,21 @@
+{
+	"post_time": 60,
+	"server_port": 0,
+	"serial_number": "22-44-66-88",
+	"temperature": 1,
+	"sw_version": "1.0",
+	"server_ip": "",
+	"pending_errors": [],
+	"hw_version": "1.0",
+	"pressure": 1,
+	"humidity": 1,
+	"wifi_ssid": "YOUR_SSID",
+	"wifi_enabled": 0,
+	"logging_enabled": 1,
+	"set_time": 1,
+	"sht": 0,
+	"device_id": "2",
+	"ntp_server": "",
+	"mqtt_server": "",
+	"clock": 1
+}

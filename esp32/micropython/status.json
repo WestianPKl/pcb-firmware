@@ -1,0 +1,14 @@
+{
+	"api_key": "",
+	"hw_version": "1.0",
+	"sw_version": "1.0",
+	"serial_number": "22-44-66-89",
+	"device_id": "",
+	"wifi_enabled": 0,
+	"wifi_ssid": "",
+	"mqtt_server": "",
+	"ntp_server": "",
+	"server_ip": "",
+	"server_port": 0,
+	"pending_errors": []
+}

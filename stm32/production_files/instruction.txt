@@ -1,0 +1,24 @@
+$bin = "C:\_Repositories\Logger_Dashboard\logger\STM32\production_files\info_page.bin"
+
+pio pkg exec -p tool-openocd -- openocd `
+  -s "$env:USERPROFILE\.platformio\packages\tool-openocd\scripts" `
+  -f board/st_nucleo_l4.cfg `
+  -c "init; reset halt; program {$bin} 0x080FF800 verify; reset run; shutdown"
+
+
+pio pkg exec -p tool-openocd -- openocd `
+  -s "$env:USERPROFILE\.platformio\packages\tool-openocd\scripts" `
+  -f board/st_nucleo_l4.cfg `
+  -c "init; reset halt; mdw 0x080FF800 8; shutdown"
+
+
+pio pkg exec -p tool-openocd -- openocd `
+  -s "$env:USERPROFILE\.platformio\packages\tool-openocd\scripts" `
+  -f board/genericSTM32F412RG.cfg `
+  -c "init; reset halt; program {$bin} 0x080FF800 verify; reset run; shutdown"
+
+
+pio pkg exec -p tool-openocd -- openocd `
+  -s "$env:USERPROFILE\.platformio\packages\tool-openocd\scripts" `
+  -f board/genericSTM32F412RG.cfg `
+  -c "init; reset halt; mdw 0x080FF800 8; shutdown"

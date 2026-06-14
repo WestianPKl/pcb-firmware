@@ -1,0 +1,82 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+build
+!.vscode/*
+__pycache__
+/__pycache__/
+.venv
+
+.DS_Store
+/node_modules/
+
+# React Router
+/.react-router/
+/build/
+backend/dist-frontend
+frontend/dist-frontend
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Sensitive device and configuration files
+*/status.json
+*/device.json
+*/secrets.json
+config.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+uploads
+
+*.env
+.env.local
+backend/.env
+backend/server/access.log
+desktop/.env
+Device/.env
+
+*.env
+*.env.production
+*.env.development
+.env.production
+.env.development
+.env.production.local
+.env.development.local
+
+# Database and local storage
+*.db
+*.sqlite
+*.sqlite3
+*.sql.backup
+
+# Logs and uploads
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+access.log
+uploads

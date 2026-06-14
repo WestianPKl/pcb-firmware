@@ -1,0 +1,21 @@
+{
+	"hw_version": "1.0",
+	"sw_version": "1.0",
+	"serial_number": "22-44-66-88",
+	"device_id": "",
+	"wifi_enabled": 0,
+	"wifi_ssid": "",
+	"mqtt_server": "",
+	"ntp_server": "",
+	"server_ip": "",
+	"server_port": 0,
+	"post_time": 60,
+	"temperature": 1,
+	"humidity": 1,
+	"pressure": 1,
+	"sht": 0,
+	"clock": 1,
+	"logging_enabled": 1,
+	"set_time": 1,
+	"pending_errors": []
+}
