@@ -1,0 +1,22 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+        
+		{
+			"name": "Debug (ST-Link)",
+			"type": "cortex-debug",
+			"request": "launch",
+			"servertype": "stlink",
+			"cwd": "${workspaceFolder}",
+			"executable": "${workspaceFolder}/build/Debug/STM32F7_BARE.elf",
+			"device": "STM32F767ZIT6",
+			"interface": "swd",
+			"runToEntryPoint": "main",
+			"preLaunchTask": "Build (Debug)",
+			"gdbPath": "C:/Users/Piotr/AppData/Local/stm32cube/bundles/gnu-gdb-for-stm32/14.3.1+st.2/bin/arm-none-eabi-gdb.exe",
+			"objdumpPath": "C:/Users/Piotr/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin/arm-none-eabi-objdump.exe",
+			"serverpath": "C:/ST/STM32CubeIDE_2.1.1/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.stlink-gdb-server.win32_2.2.400.202601091506/tools/bin/ST-LINK_gdbserver.exe",
+			"stm32cubeprogrammer": "C:/ST/STM32CubeIDE_2.1.1/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.win32_2.2.400.202601091506/tools/bin"
+		}
+	]
+}
