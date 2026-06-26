@@ -1,76 +1,131 @@
 #include "uart.h"
+#include "dma.h"
 #include "support.h"
+
+uint8_t uart3_data[uart3_buffer_size];
+uint8_t uart2_data[uart2_buffer_size];
 
 static uint16_t compute_uart_div(uint32_t pclk, uint32_t baudrate)
 {
-    return (pclk + (baudrate / 2U)) / baudrate; // round to nearest integer
-}
-
-static void uart_enable(USART_TypeDef *USARTx)
-{
-    SET_BIT(USARTx->CR1, USART_CR1_UE); // enable USART
-}
-
-static void uart_config(USART_TypeDef *USARTx, uint32_t DataWidth, uint32_t Parity, uint32_t StopBits)
-{
-    MODIFY_REG(USARTx->CR1, USART_CR1_M | USART_CR1_PCE | USART_CR1_PS, DataWidth | Parity);
-    MODIFY_REG(USARTx->CR2, USART_CR2_STOP, StopBits);
-}
-
-static void uart_set_baudrate(USART_TypeDef *USARTx, uint32_t baudrate)
-{
-    uint32_t pclk = apb1_pclk_hz();
-    USARTx->BRR = compute_uart_div(pclk, baudrate);
-}
-
-static void uart_set_direction(USART_TypeDef *USARTx, uint32_t direction)
-{
-    MODIFY_REG(USARTx->CR1, USART_CR1_TE | USART_CR1_RE, direction);
+    return (pclk + (baudrate / 2U)) / baudrate;
 }
 
 void uart_write(USART_TypeDef *USARTx, uint8_t data)
 {
-    while (!(USARTx->ISR & USART_ISR_TXE)){}; // wait until transmit data register is empty
-    USARTx->TDR = data; // write data to transmit data register
+    while (!(USARTx->ISR & USART_ISR_TXE)){};
+    USARTx->TDR = data;
 }
 
 void uart_read(USART_TypeDef *USARTx, uint8_t *data)
 {
-    while (!(USARTx->ISR & USART_ISR_RXNE)){}; // wait until receive data register is not empty
-    *data = (uint8_t)(USARTx->RDR & 0xFF); // read data from receive data register
+    while (!(USARTx->ISR & USART_ISR_RXNE)){};
+    *data = (uint8_t)(USARTx->RDR & 0xFF);
 }
 
 void uart3_rxtx_init(void)
 {
-    set_ahb1_periph_clock(RCC_AHB1ENR_GPIODEN);
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;
+    (void)RCC->AHB1ENR;
 
-    set_pin_mode(GPIOD, 8U, 0x2U); // set PD8 to alternate function mode
-    GPIOD->AFR[1] &= ~(0xFU << (0U * 4U)); // clear AFRH8
-    GPIOD->AFR[1] |=  (0x7U << (0U * 4U)); // set AFRH8 to AF7 (USART3_TX)
+    GPIOD->MODER &= ~(0x3U << (UART3_TX * 2U));
+    GPIOD->MODER |=  (0x2U << (UART3_TX * 2U));
+    GPIOD->AFR[1] &= ~(0xFU << (0U * 4U));
+    GPIOD->AFR[1] |=  (0x7U << (0U * 4U));
 
-    set_pin_mode(GPIOD, 9U, 0x2U); // set PD9 to alternate function mode
-    GPIOD->AFR[1] &= ~(0xFU << (1U * 4U)); // clear AFRH9
-    GPIOD->AFR[1] |=  (0x7U << (1U * 4U)); // set AFRH9 to AF7 (USART3_RX)
+    GPIOD->MODER &= ~(0x3U << (UART3_RX * 2U));
+    GPIOD->MODER |=  (0x2U << (UART3_RX * 2U));
+    GPIOD->AFR[1] &= ~(0xFU << (1U * 4U));
+    GPIOD->AFR[1] |=  (0x7U << (1U * 4U));
 
-    set_apb1_periph_clock(RCC_APB1ENR_USART3EN); // enable USART3 clock
+    RCC->APB1ENR |= RCC_APB1ENR_USART3EN;
+    (void)RCC->APB1ENR;
 
-    uart_config(USART3, 0U, 0U, 0U); // 8 data bits, no parity, 1 stop bit
-    uart_set_direction(USART3, USART_CR1_TE | USART_CR1_RE); // enable transmitter and receiver
-    uart_set_baudrate(USART3, 115200); // set baud rate to 115200
+    USART3->CR1 &= ~(USART_CR1_M | USART_CR1_PCE | USART_CR1_PS);
+    USART3->CR2 &= ~USART_CR2_STOP;
 
-    uart_enable(USART3);
+    USART3->CR1 |= USART_CR1_TE | USART_CR1_RE;
+
+    uint32_t pclk = apb1_pclk_hz();
+    USART3->BRR = compute_uart_div(pclk, 115200);
+
+    USART3->CR3 |= USART_CR3_DMAR | USART_CR3_DMAT;
+
+    USART3->CR1 |= USART_CR1_UE;
 }
 
 
-int __io_putchar(int ch)
+#define UART3_TX_BUF_SIZE 256U
+
+static uint8_t uart3_tx_dma_buf[UART3_TX_BUF_SIZE];
+
+static void uart3_wait_tx_idle(void)
 {
-    uart_write(USART3, (uint8_t)ch);
-    return ch;
+    uint32_t t = 1000000U;
+    while (uart3_tx_busy) {
+        if (--t == 0U) {
+            uart3_tx_busy = 0;
+            break;
+        }
+    }
 }
+
+void uart2_rxtx_init(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;
+    (void)RCC->AHB1ENR;
+
+    GPIOD->MODER &= ~(0x3U << (UART2_TX * 2U));
+    GPIOD->MODER |=  (0x2U << (UART2_TX * 2U));
+    GPIOD->AFR[0] &= ~(0xFU << (5U * 4U));
+    GPIOD->AFR[0] |=  (0x7U << (5U * 4U));
+
+    GPIOD->MODER &= ~(0x3U << (UART2_RX * 2U));
+    GPIOD->MODER |=  (0x2U << (UART2_RX * 2U));
+    GPIOD->AFR[0] &= ~(0xFU << (6U * 4U));
+    GPIOD->AFR[0] |=  (0x7U << (6U * 4U));
+
+    RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
+    (void)RCC->APB1ENR;
+
+    USART2->CR1 &= ~(USART_CR1_M | USART_CR1_PCE | USART_CR1_PS);
+    USART2->CR2 &= ~USART_CR2_STOP;
+
+    USART2->CR1 |= USART_CR1_TE | USART_CR1_RE;
+
+    uint32_t pclk = apb1_pclk_hz();
+    USART2->BRR = compute_uart_div(pclk, 256000);
+
+    USART2->CR3 |= USART_CR3_DMAR | USART_CR3_DMAT;
+
+    USART2->CR1 |= USART_CR1_UE;
+}
+
+
+#define UART2_TX_BUF_SIZE 256U
 
 int _write(int fd, const char *buf, int len)
 {
     (void)fd;
-    for (int i = 0; i < len; i++) __io_putchar(buf[i]);
+    if (len <= 0) return 0;
+
+    int sent = 0;
+    while (sent < len) {
+        uint16_t chunk = (uint16_t)((len - sent) > (int)UART3_TX_BUF_SIZE
+                                    ? UART3_TX_BUF_SIZE
+                                    : (uint16_t)(len - sent));
+        uart3_wait_tx_idle();
+        for (uint16_t i = 0; i < chunk; i++) {
+            uart3_tx_dma_buf[i] = (uint8_t)buf[sent + i];
+        }
+        uart3_write_dma(uart3_tx_dma_buf, chunk);
+        sent += chunk;
+    }
     return len;
+}
+
+int __io_putchar(int ch)
+{
+    uint8_t c = (uint8_t)ch;
+    _write(1, (const char *)&c, 1);
+    return ch;
 }

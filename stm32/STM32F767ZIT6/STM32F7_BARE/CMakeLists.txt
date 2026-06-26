@@ -53,6 +53,16 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/outputs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/timers.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/adc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/spi.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/i2c.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/dma.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/ld2450.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/bme280.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/sht40.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/can.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/usb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernet.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/lcd.c
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Source/Templates/system_stm32f7xx.c
 )
 

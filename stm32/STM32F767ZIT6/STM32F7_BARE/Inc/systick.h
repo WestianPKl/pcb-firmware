@@ -7,5 +7,6 @@
 void     systick_init(void);
 uint32_t systick_get_ms(void);
 void     systick_delay_ms(uint32_t ms);
+void systick_1hz_interrupt_init(void);
 
 #endif // SYSTICK_H
