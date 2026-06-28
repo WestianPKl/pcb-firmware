@@ -63,6 +63,8 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/usb.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernet.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/iwdg.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/wwdg.c
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Source/Templates/system_stm32f7xx.c
 )
 
