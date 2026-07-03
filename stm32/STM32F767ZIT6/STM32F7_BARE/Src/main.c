@@ -10,6 +10,7 @@
 #include "lwip/tcpip.h"
 #include "lwip/netif.h"
 #include "lwip/ip4_addr.h"
+#include "lwip/apps//mqtt.h"
 #include "netif/etharp.h"
 #include "ethernetif.h"
 #include "lwip/api.h"
@@ -42,6 +43,7 @@ typedef struct {
     uint8_t len;
     uint8_t data[256];
     uint8_t crc;
+    uint8_t uart_flag;
 } protocol_message_t;
 
 QueueHandle_t protocol_queue;
@@ -68,6 +70,7 @@ void task_can(void *params);
 void task_eth_rx(void *params);
 void task_eth_link(void *params);
 void task_tcp_server(void *params);
+void task_mtqq(void *params);
 
 static void clock_init_216mhz(void)
 {
@@ -198,6 +201,7 @@ void task_init(void *params)
     xTaskCreate(task_eth_link, "eth_link", 256, NULL, 3, NULL);
     lwip_start();
     xTaskCreate(task_tcp_server, "tcp", 512, NULL, 3, NULL);
+    xTaskCreate(task_mtqq, "mtqq", 512, NULL, 3, NULL);
     vTaskDelete(NULL);
 }
 
@@ -232,11 +236,6 @@ void task_sensor(void *params)
 
     rtc_init();
 
-    uint32_t rng_value = 0;
-    if (rng_get(&rng_value)) {
-        printf("RNG value: %lu\n", rng_value);
-    }
-
     rtc_datetime_t local_datetime = 
     {
         .seconds = 0,
@@ -258,6 +257,11 @@ void task_sensor(void *params)
         bme280_data_local.temperature = 0;
         bme280_data_local.humidity = 0;
         bme280_data_local.pressure = 0;
+
+        uint32_t rng_value = 0;
+        if (rng_get(&rng_value)) {
+            printf("RNG value: %lu\n", rng_value);
+        }
 
         if (xSemaphoreTake(rtc_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
         {
@@ -311,7 +315,7 @@ void task_sensor(void *params)
             xSemaphoreGive(sensor_reading_mutex);
         }
         
-        printf("RTC: %02d:%02d:%02d %04d-%02d-%02d\n", rtc_date_time.hours, rtc_date_time.minutes, rtc_date_time.seconds, rtc_date_time.year, rtc_date_time.month, rtc_date_time.day);
+        printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n", rtc_date_time.year, rtc_date_time.month, rtc_date_time.day, rtc_date_time.hours, rtc_date_time.minutes, rtc_date_time.seconds);
         printf("BME280: Temp: %.2f C, Hum: %.2f %%, Pres: %.2f hPa\n", bme280_data.temperature / 100.0f, bme280_data.humidity / 100.0f, bme280_data.pressure / 100.0f);
         printf("SHT40: Temp: %.2f C, Hum: %.2f %%\n", sht40_data.temperature / 100.0f, sht40_data.humidity / 100.0f);
         
@@ -339,6 +343,7 @@ void task_uart2(void *params)
             c.cmd     = uart2_tx_buf[1];
             c.param   = uart2_tx_buf[2];
             c.len     = uart2_tx_buf[3];
+            c.uart_flag = 1;
 
             if ((uint32_t)4U + c.len + 1U > (uint32_t)n) {
                 uart2_dma1_rx_start(uart2_data, uart2_buffer_size);
@@ -370,15 +375,16 @@ void task_protocol(void *params)
     protocol_message_t msg;
     for (;;) {
         if (xQueueReceive(protocol_queue, &msg, portMAX_DELAY) == pdTRUE) {
-                printf("Received protocol message: address=0x%02X, cmd=0x%02X, param=0x%02X, len=%d\n", msg.address, msg.cmd, msg.param, msg.len);
-
             switch(msg.cmd) {
                 case 0x00: 
                 {
                     uint8_t response[3] = {0xAA, 0xAA, 0xAA};
-                    if (xSemaphoreTake(uart2_mutex, portMAX_DELAY) == pdTRUE) {
-                        uart2_write_dma(response, 3);
-                        xSemaphoreGive(uart2_mutex);
+
+                    if(msg.uart_flag) {
+                        if (xSemaphoreTake(uart2_mutex, portMAX_DELAY) == pdTRUE) {
+                            uart2_write_dma(response, 3);
+                            xSemaphoreGive(uart2_mutex);
+                        }
                     }
                     break;
                 }
@@ -391,9 +397,11 @@ void task_protocol(void *params)
                         
                         uint8_t response[5] = {0xAA, 0x01, 0x01, pwm_value, 0x00};
                         response[4] = crc8_atm(&response[1], 4);
-                        if (xSemaphoreTake(uart2_mutex, portMAX_DELAY) == pdTRUE) {
-                            uart2_write_dma(response, 5);
-                            xSemaphoreGive(uart2_mutex);
+                        if(msg.uart_flag) {
+                            if (xSemaphoreTake(uart2_mutex, portMAX_DELAY) == pdTRUE) {
+                                uart2_write_dma(response, 5);
+                                xSemaphoreGive(uart2_mutex);
+                            }
                         }
                     }
                     break;
@@ -504,12 +512,36 @@ void task_tcp_server(void *params)
             do {
                 netbuf_data(buf, &data, &len);
                 netconn_write(newconn, data, len, NETCONN_COPY);
-                printf("Odebrano %u bajtow, odeslano echo\n", len);
+                protocol_message_t c;
+
+                c.address = ((uint8_t *)data)[0];
+                c.cmd     = ((uint8_t *)data)[1];
+                c.param   = ((uint8_t *)data)[2];
+                c.len     = ((uint8_t *)data)[3];
+                c.uart_flag = 0;
+
+                if ((uint32_t)4U + c.len + 1U > (uint32_t)len) {
+                    break;
+                }
+                for (uint8_t i = 0; i < c.len; i++) {
+                    c.data[i] = ((uint8_t *)data)[4 + i];
+                }
+                c.crc = ((uint8_t *)data)[4 + c.len];
+                xQueueSend(protocol_queue, &c, 0);
+                
+
             } while (netbuf_next(buf) >= 0);
             netbuf_delete(buf);
         }
         netconn_close(newconn);
         netconn_delete(newconn);
+    }
+}
+
+void task_mtqq(void *params)
+{
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
