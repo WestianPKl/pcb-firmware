@@ -1,7 +1,7 @@
 #include "bme280.h"
 #include "spi.h"
 #include "dma.h"
-#include "systick.h"
+#include "support.h"
 
 #define REG_ID        0xD0
 #define REG_RESET     0xE0
@@ -145,7 +145,7 @@ uint8_t bme280_read_id(void)
 void bme280_init(void)
 {
     bme280_write_register(REG_RESET, 0xB6);
-    systick_delay_ms(10);
+    delay_ms(10);
 
     bme280_read_calibration_data();
 

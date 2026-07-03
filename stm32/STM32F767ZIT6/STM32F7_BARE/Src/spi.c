@@ -61,17 +61,28 @@ void spi1_init(void)
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
     (void)RCC->AHB1ENR;
 
+     RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;
+    (void)RCC->AHB1ENR;
+
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOFEN;
     (void)RCC->AHB1ENR;
 
-    GPIOA->MODER &= ~((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)) | (3U << (SPI1_MOSI * 2)));
-    GPIOA->MODER |= ((2U << (SPI1_SCK * 2)) | (2U << (SPI1_MISO * 2)) | (2U << (SPI1_MOSI * 2)));
-    GPIOA->OTYPER &= ~((1U << SPI1_SCK) | (1U << SPI1_MISO) | (1U << SPI1_MOSI));
-    GPIOA->OSPEEDR |= ((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)) | (3U << (SPI1_MOSI * 2)));
-    GPIOA->PUPDR &= ~((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)) | (3U << (SPI1_MOSI * 2)));
+    GPIOA->MODER &= ~((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)));
+    GPIOA->MODER |= ((2U << (SPI1_SCK * 2)) | (2U << (SPI1_MISO * 2)));
+    GPIOA->OTYPER &= ~((1U << SPI1_SCK) | (1U << SPI1_MISO));
+    GPIOA->OSPEEDR |= ((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)));
+    GPIOA->PUPDR &= ~((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)));
 
-    GPIOA->AFR[0] &= ~((0xFU << (SPI1_SCK * 4)) | (0xFU << (SPI1_MISO * 4)) | (0xFU << (SPI1_MOSI * 4)));
-    GPIOA->AFR[0] |= ((5U << (SPI1_SCK * 4)) | (5U << (SPI1_MISO * 4)) | (5U << (SPI1_MOSI * 4)));
+    GPIOD->MODER &= ~(3U << (SPI1_MOSI * 2));
+    GPIOD->MODER |=  (2U << (SPI1_MOSI * 2));
+    GPIOD->OTYPER &= ~(1U << SPI1_MOSI);
+    GPIOD->OSPEEDR |= (3U << (SPI1_MOSI * 2));
+    GPIOD->PUPDR &= ~(3U << (SPI1_MOSI * 2));
+
+    GPIOA->AFR[0] &= ~((0xFU << (SPI1_SCK * 4)) | (0xFU << (SPI1_MISO * 4)) );
+    GPIOA->AFR[0] |= ((5U << (SPI1_SCK * 4)) | (5U << (SPI1_MISO * 4)));
+    GPIOD->AFR[0] &= ~(0xFU << (SPI1_MOSI * 4));
+    GPIOD->AFR[0] |=  (5U << (SPI1_MOSI * 4));
 
     GPIOF->MODER &= ~(3U << (SPI1_CS * 2));
     GPIOF->MODER |=  (1U << (SPI1_CS * 2));
@@ -86,7 +97,7 @@ void spi1_init(void)
     SPI1->CR1 = 0;
     SPI1->CR2 = 0;
 
-    SPI1->CR1 |= SPI_CR1_MSTR | SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_BR_0 | SPI_CR1_BR_1 | SPI_CR1_BR_2;
+    SPI1->CR1 |= SPI_CR1_MSTR | SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_BR_1 | SPI_CR1_BR_2;
 
     SPI1->CR2 |= SPI_CR2_RXDMAEN | SPI_CR2_TXDMAEN | SPI_CR2_FRXTH;
     SPI1->CR1 |= SPI_CR1_CPOL | SPI_CR1_CPHA;
@@ -116,7 +127,7 @@ void spi3_init(void)
     SPI3->CR2 = 0;
 
     SPI3->CR1 &= ~SPI_CR1_MSTR;
-    SPI3->CR1 |=  SPI_CR1_SSM | SPI_CR1_BR_0 | SPI_CR1_BR_1 | SPI_CR1_BR_2;
+    SPI3->CR1 |=  SPI_CR1_SSM | SPI_CR1_BR_0 |  SPI_CR1_BR_2;
 
     SPI3->CR2 |= SPI_CR2_RXDMAEN | SPI_CR2_TXDMAEN | SPI_CR2_FRXTH;
     SPI3->CR1 |= SPI_CR1_CPOL | SPI_CR1_CPHA;

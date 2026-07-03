@@ -1,28 +1,6 @@
 #include "ethernet.h"
-#include "systick.h"
-
-#define PHY_ADDR          0x00U
-#define PHY_BCR           0x00U
-#define PHY_BSR           0x01U
-#define PHY_BCR_RESET     (1U << 15)
-#define PHY_BCR_AN_RESTART (1U << 9)
-#define PHY_BCR_AN_ENABLE (1U << 12)
-#define PHY_BSR_LINK_UP   (1U << 2)
-
-#define MACMIIAR_CR       (0x4U << 2)
-
-#define TDES0_OWN  (1U << 31)
-#define TDES0_LS   (1U << 29)
-#define TDES0_FS   (1U << 28)
-#define TDES0_TCH  (1U << 20)
-#define RDES0_OWN  (1U << 31)
-#define RDES0_ES   (1U << 15)
-#define RDES1_RCH  (1U << 14)
-#define RDES1_RBS1 (0x1FFFU)
-
-#define ETH_RX_DESC_CNT 4U
-#define ETH_TX_DESC_CNT 4U
-#define ETH_BUF_SIZE    1524U
+#include "main.h"
+#include "support.h"
 
 typedef struct {
     volatile uint32_t des0;
@@ -40,6 +18,7 @@ static eth_desc_t *cur_rx;
 static eth_desc_t *cur_tx;
 
 volatile uint8_t eth_rx_ready;
+
 
 static void eth_pin_af11(GPIO_TypeDef *port, uint32_t pin)
 {
@@ -121,12 +100,10 @@ void ethernet_init(void)
     while ((ETH->DMABMR & ETH_DMABMR_SR) && --t) {}
 
     eth_phy_write(PHY_BCR, PHY_BCR_RESET);
-    systick_delay_ms(2);
+    delay_ms(2);
     t = 100000U;
     while ((eth_phy_read(PHY_BCR) & PHY_BCR_RESET) && --t) {}
     eth_phy_write(PHY_BCR, PHY_BCR_AN_ENABLE | PHY_BCR_AN_RESTART);
-    t = 5000000U;
-    while (!(eth_phy_read(PHY_BSR) & PHY_BSR_LINK_UP) && --t) {}
 
     ETH->MACCR  = ETH_MACCR_FES | ETH_MACCR_DM | ETH_MACCR_IPCO;
     ETH->MACFFR = ETH_MACFFR_PM;
@@ -149,6 +126,7 @@ void ethernet_init(void)
     ETH->DMAOMR |= ETH_DMAOMR_ST | ETH_DMAOMR_SR;
 
     ETH->DMAIER |= ETH_DMAIER_NISE | ETH_DMAIER_RIE;
+    
     NVIC_SetPriority(ETH_IRQn, 5);
     NVIC_EnableIRQ(ETH_IRQn);
 }
@@ -163,7 +141,7 @@ uint8_t eth_send_frame(const uint8_t *data, uint16_t len)
     for (uint16_t i = 0; i < len; i++) buf[i] = data[i];
 
     cur_tx->des1 = (uint32_t)len & 0x1FFFU;
-    cur_tx->des0 = TDES0_TCH | TDES0_FS | TDES0_LS | TDES0_OWN;
+    cur_tx->des0 = TDES0_TCH | TDES0_CIC | TDES0_FS | TDES0_LS | TDES0_OWN;
 
     if (ETH->DMASR & ETH_DMASR_TBUS) {
         ETH->DMASR = ETH_DMASR_TBUS;
@@ -204,11 +182,15 @@ uint8_t eth_link_up(void)
     return (eth_phy_read(PHY_BSR) & PHY_BSR_LINK_UP) ? 1U : 0U;
 }
 
-void ETH_IRQHandler(void)
-{
+volatile uint32_t eth_isr_count = 0;
+
+void ETH_IRQHandler(void) {
+    eth_isr_count++;
     if (ETH->DMASR & ETH_DMASR_RS) {
         ETH->DMASR = ETH_DMASR_RS;
-        eth_rx_ready = 1U;
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        vTaskNotifyGiveFromISR(eth_rx_task_handle, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
     ETH->DMASR = ETH_DMASR_NIS;
 }

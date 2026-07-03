@@ -1,4 +1,6 @@
 #include "can.h"
+#include "main.h"
+#include "support.h"
 
 #define CAN_RX 0U // PD0
 #define CAN_TX 1U // PD1
@@ -24,7 +26,7 @@ static uint8_t can_wait_clear(volatile uint32_t *reg, uint32_t mask)
     return ((*reg & mask) == 0U) ? 1U : 0U;
 }
 
-void can_filter_accept_all(void)
+static void can_filter_set(uint32_t fr1, uint32_t fr2)
 {
     CAN1->FMR |= CAN_FMR_FINIT;
 
@@ -36,30 +38,21 @@ void can_filter_accept_all(void)
     CAN1->FM1R  &= ~CAN_FM1R_FBM0;
     CAN1->FFA1R &= ~CAN_FFA1R_FFA0;
 
-    CAN1->sFilterRegister[0].FR1 = 0x00000000U;
-    CAN1->sFilterRegister[0].FR2 = 0x00000000U;
+    CAN1->sFilterRegister[0].FR1 = fr1;
+    CAN1->sFilterRegister[0].FR2 = fr2;
 
     CAN1->FA1R |= CAN_FA1R_FACT0;
     CAN1->FMR &= ~CAN_FMR_FINIT;
 }
 
+void can_filter_accept_all(void)
+{
+    can_filter_set(0x00000000U, 0x00000000U);
+}
+
 void can_filter_config(uint16_t std_id)
 {
-    CAN1->FMR |= CAN_FMR_FINIT;
-
-    CAN1->FMR &= ~CAN_FMR_CAN2SB_Msk;
-    CAN1->FMR |=  (14U << CAN_FMR_CAN2SB_Pos);
-
-    CAN1->FA1R  &= ~CAN_FA1R_FACT0;
-    CAN1->FS1R  |=  CAN_FS1R_FSC0;
-    CAN1->FM1R  &= ~CAN_FM1R_FBM0;
-    CAN1->FFA1R &= ~CAN_FFA1R_FFA0;
-
-    CAN1->sFilterRegister[0].FR1 = ((uint32_t)(std_id & 0x7FFU) << 21U);
-    CAN1->sFilterRegister[0].FR2 = ((uint32_t)0x7FFU << 21U);
-
-    CAN1->FA1R |= CAN_FA1R_FACT0;
-    CAN1->FMR &= ~CAN_FMR_FINIT;
+    can_filter_set((uint32_t)(std_id & 0x7FFU) << 21U, (uint32_t)0x7FFU << 21U);
 }
 
 void can_params_init(uint8_t mode)
@@ -72,9 +65,13 @@ void can_params_init(uint8_t mode)
     GPIOD->MODER &= ~((3U << (CAN_RX * 2U)) | (3U << (CAN_TX * 2U)));
     GPIOD->MODER |=  ((2U << (CAN_RX * 2U)) | (2U << (CAN_TX * 2U)));
 
+    GPIOD->PUPDR &= ~(3U << (CAN_RX * 2U));
+    GPIOD->PUPDR |=  (1U << (CAN_RX * 2U));
+
     GPIOD->AFR[0] &= ~((0xFU << (CAN_RX * 4U)) | (0xFU << (CAN_TX * 4U)));
     GPIOD->AFR[0] |=  ((0x9U << (CAN_RX * 4U)) | (0x9U << (CAN_TX * 4U)));
 
+    NVIC_SetPriority(CAN1_RX0_IRQn, 5);
     NVIC_EnableIRQ(CAN1_RX0_IRQn);
 
     RCC->APB1ENR |= RCC_APB1ENR_CAN1EN;
@@ -98,12 +95,16 @@ void can_params_init(uint8_t mode)
     CAN1->MCR &= ~CAN_MCR_RFLM;
     CAN1->MCR &= ~CAN_MCR_TXFP;
 
-    CAN1->BTR =
-        (0U << CAN_BTR_SJW_Pos) |
-        (13U << CAN_BTR_TS1_Pos) |
-        (2U  << CAN_BTR_TS2_Pos) |
-        (5U  << CAN_BTR_BRP_Pos);
+    uint32_t pclk1    = apb1_pclk_hz();
+    uint32_t baud     = 500000U;
+    uint32_t bs1      = 15U, bs2 = 2U;
+    uint32_t total_tq = 1U + bs1 + bs2;
+    uint32_t brp      = pclk1 / (baud * total_tq);
 
+    CAN1->BTR = (0U   << CAN_BTR_SJW_Pos)
+            | ((bs1 - 1U)  << CAN_BTR_TS1_Pos)
+            | ((bs2 - 1U)  << CAN_BTR_TS2_Pos)
+            | ((brp - 1U)  << CAN_BTR_BRP_Pos);
 
     if (mode == CAN_MODE_LOOPBACK) {
         CAN1->BTR |= (CAN_BTR_LBKM | CAN_BTR_SILM);
@@ -258,15 +259,19 @@ uint8_t can_get_rx_message(uint32_t RxFifo, can_rx_header_typedef *pHeader, uint
     return 0U;
 }
 
-volatile uint8_t          can_rx_ready = 0U;
+volatile uint32_t can_isr_count = 0;
 can_rx_header_typedef     can_rx_header;
 uint8_t                   can_rx_data[8];
 
+
 void CAN1_RX0_IRQHandler(void)
 {
+    can_isr_count++;
     if ((CAN1->RF0R & CAN_RF0R_FMP0) != 0U) {
         if (can_get_rx_message(CAN_RX_FIFO0, &can_rx_header, can_rx_data) == 0U) {
-            can_rx_ready = 1U;
+            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+            vTaskNotifyGiveFromISR(task_can_handler, &xHigherPriorityTaskWoken);
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         } else {
             CAN1->RF0R = CAN_RF0R_RFOM0;
         }

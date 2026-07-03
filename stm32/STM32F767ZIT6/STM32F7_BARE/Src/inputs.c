@@ -1,9 +1,7 @@
 #include "inputs.h"
+#include "main.h"
 #include "support.h"
 #include "outputs.h"
-#include "systick.h"
-
-volatile uint8_t btn_pressed = 0;
 
 void init_btn(void)
 {
@@ -29,23 +27,16 @@ void init_btn(void)
     EXTI->IMR |= BTN_1;
     EXTI->FTSR |= BTN_1;
 
-    NVIC_SetPriority(EXTI15_10_IRQn, 0);
+    NVIC_SetPriority(EXTI15_10_IRQn, 6);
     NVIC_EnableIRQ(EXTI15_10_IRQn); 
-}
-
-void btn1_handler(void)
-{
-    systick_delay_ms(10);
-    if (GPIOC->IDR & BTN_1) return;
-
-    GPIOB->ODR ^= (1U << LED1);
-   
 }
 
 void EXTI15_10_IRQHandler(void)
 {
     if (EXTI->PR & BTN_1) {
         EXTI->PR |= BTN_1;
-        btn_pressed = 1;
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        vTaskNotifyGiveFromISR(task_button_handle, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }

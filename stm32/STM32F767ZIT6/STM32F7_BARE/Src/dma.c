@@ -44,6 +44,15 @@ static void dma_stream_disable(DMA_Stream_TypeDef *DMAx)
     (void)rc;
 }
 
+static void dma_stream_config(DMA_Stream_TypeDef *DMAx, uint32_t chsel, uint32_t dir)
+{
+    dma_stream_disable(DMAx);
+    DMAx->CR = 0;
+    DMAx->CR |= (chsel << DMA_SxCR_CHSEL_Pos);
+    DMAx->CR |= (dir   << DMA_SxCR_DIR_Pos);
+    DMAx->CR |= DMA_SxCR_MINC;
+}
+
 void dma1_init(void)
 {
     RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
@@ -187,6 +196,7 @@ void uart2_dma1_tx_start(uint8_t *mem_addr, uint16_t len)
     DMA1->HIFCR = DMA_HIFCR_CTCIF6 | DMA_HIFCR_CHTIF6 | DMA_HIFCR_CTEIF6
                 | DMA_HIFCR_CDMEIF6 | DMA_HIFCR_CFEIF6;
 
+    NVIC_SetPriority(DMA1_Stream6_IRQn, 5);
     NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
     DMA1_Stream6->CR |= DMA_SxCR_EN;
@@ -214,30 +224,14 @@ void uart2_receive_dma(uint8_t *dst, uint16_t len)
 }
 
 void spi1_dma_rx_init(void){
-    dma_stream_disable(DMA2_Stream2);
-
-    DMA2_Stream2->CR = 0;
-    DMA2_Stream2->CR |= (3U << DMA_SxCR_CHSEL_Pos);
-    DMA2_Stream2->CR |= (0U << DMA_SxCR_DIR_Pos);
-    DMA2_Stream2->CR |= DMA_SxCR_MINC;
-    DMA2_Stream2->CR &= ~DMA_SxCR_PINC;
-    DMA2_Stream2->CR &= ~DMA_SxCR_CIRC;
-
+    dma_stream_config(DMA2_Stream2, 3U, 0U);
     DMA2_Stream2->CR |= DMA_SxCR_TCIE | DMA_SxCR_TEIE;
     NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 }
 
 void spi1_dma_tx_init(void){
-    dma_stream_disable(DMA2_Stream3);
-
-    DMA2_Stream3->CR = 0;
-    DMA2_Stream3->CR |= (3U << DMA_SxCR_CHSEL_Pos);
-    DMA2_Stream3->CR |= (1U << DMA_SxCR_DIR_Pos);
-    DMA2_Stream3->CR |= DMA_SxCR_MINC;
-    DMA2_Stream3->CR &= ~DMA_SxCR_PINC;
-    DMA2_Stream3->CR &= ~DMA_SxCR_CIRC;
-    
-    DMA2_Stream3->CR |= DMA_SxCR_TCIE | DMA_SxCR_TEIE; 
+    dma_stream_config(DMA2_Stream3, 3U, 1U);
+    DMA2_Stream3->CR |= DMA_SxCR_TCIE | DMA_SxCR_TEIE;
     NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 }
 
@@ -265,30 +259,14 @@ void spi1_dma_receive(uint32_t received_msg, uint32_t msg_len){
 
 
 void spi3_dma_rx_init(void){
-    dma_stream_disable(DMA1_Stream0);
-
-    DMA1_Stream0->CR = 0;
-    DMA1_Stream0->CR |= (0U << DMA_SxCR_CHSEL_Pos);
-    DMA1_Stream0->CR |= (0U << DMA_SxCR_DIR_Pos);
-    DMA1_Stream0->CR |= DMA_SxCR_MINC;
-    DMA1_Stream0->CR &= ~DMA_SxCR_PINC;
-    DMA1_Stream0->CR &= ~DMA_SxCR_CIRC;
-
+    dma_stream_config(DMA1_Stream0, 0U, 0U);
     DMA1_Stream0->CR |= DMA_SxCR_TCIE | DMA_SxCR_TEIE;
     NVIC_EnableIRQ(DMA1_Stream0_IRQn);
 }
 
 void spi3_dma_tx_init(void){
-    dma_stream_disable(DMA1_Stream7);
-
-    DMA1_Stream7->CR = 0;
-    DMA1_Stream7->CR |= (0U << DMA_SxCR_CHSEL_Pos);
-    DMA1_Stream7->CR |= (1U << DMA_SxCR_DIR_Pos);
-    DMA1_Stream7->CR |= DMA_SxCR_MINC;
-    DMA1_Stream7->CR &= ~DMA_SxCR_PINC;
-    DMA1_Stream7->CR &= ~DMA_SxCR_CIRC;
-    
-    DMA1_Stream7->CR |= DMA_SxCR_TCIE | DMA_SxCR_TEIE; 
+    dma_stream_config(DMA1_Stream7, 0U, 1U);
+    DMA1_Stream7->CR |= DMA_SxCR_TCIE | DMA_SxCR_TEIE;
     NVIC_EnableIRQ(DMA1_Stream7_IRQn);
 }
 
@@ -347,25 +325,11 @@ void spi1_dma_xfer(const uint8_t *tx, uint8_t *rx, uint32_t len)
 }
 
 void i2c2_dma_tx_init(void){
-    dma_stream_disable(DMA1_Stream4);
-
-    DMA1_Stream4->CR = 0;
-    DMA1_Stream4->CR |= (7U << DMA_SxCR_CHSEL_Pos);
-    DMA1_Stream4->CR |= (1U << DMA_SxCR_DIR_Pos);
-    DMA1_Stream4->CR |= DMA_SxCR_MINC;
-    DMA1_Stream4->CR &= ~DMA_SxCR_PINC;
-    DMA1_Stream4->CR &= ~DMA_SxCR_CIRC;
+    dma_stream_config(DMA1_Stream4, 7U, 1U);
 }
 
 void i2c2_dma_rx_init(void){
-    dma_stream_disable(DMA1_Stream2);
-
-    DMA1_Stream2->CR = 0;
-    DMA1_Stream2->CR |= (7U << DMA_SxCR_CHSEL_Pos);
-    DMA1_Stream2->CR |= (0U << DMA_SxCR_DIR_Pos);
-    DMA1_Stream2->CR |= DMA_SxCR_MINC;
-    DMA1_Stream2->CR &= ~DMA_SxCR_PINC;
-    DMA1_Stream2->CR &= ~DMA_SxCR_CIRC;
+    dma_stream_config(DMA1_Stream2, 7U, 0U);
 }
 
 void i2c2_dma_tx_start(uint32_t buf, uint16_t len){

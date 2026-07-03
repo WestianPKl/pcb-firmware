@@ -1,6 +1,6 @@
 #include "sht40.h"
 #include "i2c.h"
-#include "systick.h"
+#include "support.h"
 
 #define SHT40_ADDR                    0x44U
 #define SHT40_CMD_SINGLE_SHOT_HIGHREP 0xFDU
@@ -24,7 +24,7 @@ uint32_t sht40_read_serial_number(void)
     uint8_t data[6];
 
     if (i2c2_write(SHT40_ADDR, &cmd, 1) != 1) return 0;
-    systick_delay_ms(1);
+    delay_ms(1);
     if (i2c2_read(SHT40_ADDR, data, 6) != 1) return 0;
 
     if (data[2] != sht_crc8(data, 2) || data[5] != sht_crc8(&data[3], 2)) {
@@ -43,7 +43,7 @@ static uint8_t sht40_read_raw(uint16_t *rawT, uint16_t *rawRH)
     uint8_t cmd = SHT40_CMD_SINGLE_SHOT_HIGHREP;
     if (i2c2_write(SHT40_ADDR, &cmd, 1) != 1) return 2;
 
-    systick_delay_ms(15);
+    delay_ms(15);
 
     uint8_t data[6];
     if (i2c2_read(SHT40_ADDR, data, 6) != 1) return 3;
@@ -63,7 +63,7 @@ uint8_t sht40_single_shot_measurement(uint8_t *data)
 
     uint8_t cmd = SHT40_CMD_SINGLE_SHOT_HIGHREP;
     if (i2c2_write(SHT40_ADDR, &cmd, 1) != 1) return 1;
-    systick_delay_ms(15);
+    delay_ms(15);
     if (i2c2_read(SHT40_ADDR, data, 6) != 1) return 2;
     return 0;
 }

@@ -22,7 +22,6 @@ void adc1_ch4_continuous(uint8_t continuous)
     ADC1->SQR2 = 0;
     ADC1->SQR3 = 0;
 
-    ADC1->SQR1 |= (0U << ADC_SQR1_L_Pos);
     ADC1->SQR3 |= (ADC1_CH4 << ADC_SQR3_SQ1_Pos);
     
     ADC1->SMPR2 &= ~(0x7U << ADC_SMPR2_SMP4_Pos);

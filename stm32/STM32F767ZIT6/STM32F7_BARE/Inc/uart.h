@@ -15,6 +15,7 @@ extern uint8_t uart3_data[uart3_buffer_size];
 
 #define uart2_buffer_size 29
 extern uint8_t uart2_data[uart2_buffer_size];
+extern volatile uint16_t uart2_rx_len;
 
 void uart3_rxtx_init(void);
 void uart2_rxtx_init(void);

@@ -6,7 +6,7 @@
 
 #define SPI1_SCK 5U // PA5
 #define SPI1_MISO 6U // PA6
-#define SPI1_MOSI 7U // PA7
+#define SPI1_MOSI 7U // PD7
 #define SPI1_CS 12U //PF12
 
 #define SPI3_SCK 3U // PB3

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "stm32f7xx.h"
 
+extern volatile uint32_t can_isr_count;
 typedef struct
 {
 	uint32_t std_id;

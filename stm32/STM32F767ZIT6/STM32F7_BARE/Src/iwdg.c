@@ -6,8 +6,10 @@ void iwdg_init(void)
     IWDG->PR  = 0x1U;
     IWDG->RLR = 0xFA0U;
 
-    while (IWDG->SR & IWDG_SR_PVU) {}
-    while (IWDG->SR & IWDG_SR_RVU) {}
+    uint32_t t = 100000U;
+    while ((IWDG->SR & IWDG_SR_PVU) && --t);
+    t = 100000U;
+    while ((IWDG->SR & IWDG_SR_RVU) && --t);
 
     IWDG->KR  = 0xAAAAU;
     IWDG->KR  = 0xCCCCU;

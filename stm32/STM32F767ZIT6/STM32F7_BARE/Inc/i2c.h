@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include "stm32f7xx.h"
 
-#define I2C_TIMING 0x00303D5B
+// #define I2C_TIMING 0x00303D5B
+#define I2C_TIMING 0x20404768
 #define I2C1_SLAVE_ADDRESS 0x42U
 #define I2C_DIRECTION_WRITE 0x00U
 
@@ -33,6 +34,6 @@ uint8_t i2c2_read(uint8_t addr, uint8_t *buf, uint16_t len);
 uint8_t i2c2_write_reg(uint8_t addr, uint8_t reg, const uint8_t *buf, uint16_t len);
 uint8_t i2c2_read_reg(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len);
 
-uint32_t i2c2_get_address_matchode(void);
+uint32_t i2c2_get_address_match_code(void);
 
 #endif // I2C_H

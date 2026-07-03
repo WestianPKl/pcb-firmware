@@ -1,5 +1,6 @@
 #include "uart.h"
 #include "dma.h"
+#include "main.h"
 #include "support.h"
 
 uint8_t uart3_data[uart3_buffer_size];
@@ -93,9 +94,14 @@ void uart2_rxtx_init(void)
     USART2->CR1 |= USART_CR1_TE | USART_CR1_RE;
 
     uint32_t pclk = apb1_pclk_hz();
-    USART2->BRR = compute_uart_div(pclk, 256000);
+    // USART2->BRR = compute_uart_div(pclk, 256000);
+    USART2->BRR = compute_uart_div(pclk, 115200);
 
     USART2->CR3 |= USART_CR3_DMAR | USART_CR3_DMAT;
+
+    USART2->CR1 |= USART_CR1_IDLEIE;
+    NVIC_SetPriority(USART2_IRQn, 5);
+    NVIC_EnableIRQ(USART2_IRQn);
 
     USART2->CR1 |= USART_CR1_UE;
 }
@@ -104,7 +110,8 @@ void uart2_rxtx_init(void)
 #define UART2_TX_BUF_SIZE 256U
 
 int _write(int fd, const char *buf, int len)
-{
+{   
+    xSemaphoreTake(printf_mutex, portMAX_DELAY);
     (void)fd;
     if (len <= 0) return 0;
 
@@ -120,6 +127,7 @@ int _write(int fd, const char *buf, int len)
         uart3_write_dma(uart3_tx_dma_buf, chunk);
         sent += chunk;
     }
+    xSemaphoreGive(printf_mutex);
     return len;
 }
 
@@ -128,4 +136,18 @@ int __io_putchar(int ch)
     uint8_t c = (uint8_t)ch;
     _write(1, (const char *)&c, 1);
     return ch;
+}
+
+volatile uint16_t uart2_rx_len = 0;
+
+void USART2_IRQHandler(void)
+{
+    if (USART2->ISR & USART_ISR_IDLE) {
+        USART2->ICR = USART_ICR_IDLECF;
+
+        uart2_rx_len = uart2_buffer_size - (uint16_t)DMA1_Stream5->NDTR;
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        vTaskNotifyGiveFromISR(task_uart2_handle, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
 }

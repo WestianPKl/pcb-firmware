@@ -101,17 +101,6 @@ void i2c2_master_read(uint8_t addr, uint8_t *buf, uint16_t len)
     I2C2->CR2 |= I2C_CR2_START;
 }
 
-uint8_t i2c2_master_wait(void)
-{
-    uint32_t t = 1000000U;
-    while (!(I2C2->ISR & I2C_ISR_STOPF)) {
-        if (--t == 0U) return 0;
-    }
-    uint8_t ok = (I2C2->ISR & I2C_ISR_NACKF) ? 0U : 1U;
-    I2C2->ICR = I2C_ICR_STOPCF | I2C_ICR_NACKCF;
-    return ok;
-}
-
 #define I2C2_TO 100000U
 
 static uint8_t i2c2_stop_done(void)
@@ -121,6 +110,11 @@ static uint8_t i2c2_stop_done(void)
     uint8_t ok = (I2C2->ISR & I2C_ISR_NACKF) ? 0U : 1U;
     I2C2->ICR = I2C_ICR_STOPCF | I2C_ICR_NACKCF;
     return ok;
+}
+
+uint8_t i2c2_master_wait(void)
+{
+    return i2c2_stop_done();
 }
 
 uint8_t i2c2_write(uint8_t addr, const uint8_t *buf, uint16_t len)
@@ -198,7 +192,7 @@ uint8_t i2c2_read_reg(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len)
     return i2c2_stop_done();
 }
 
-uint32_t i2c2_get_address_matchode(void)
+uint32_t i2c2_get_address_match_code(void)
 {
     return (uint32_t)(READ_BIT(I2C2->ISR, I2C_ISR_ADDCODE) >> I2C_ISR_ADDCODE_Pos);
 }

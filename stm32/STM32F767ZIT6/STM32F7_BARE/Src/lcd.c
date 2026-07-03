@@ -1,6 +1,6 @@
 #include "lcd.h"
 #include "i2c.h"
-#include "systick.h"
+#include "support.h"
 
 #define LCD_I2C_ADDR 0x27 
 #define LCD_RS   0x01
@@ -60,7 +60,7 @@ static void lcd_command(uint8_t cmd)
 {
     lcd_write8bits(cmd, 0);
     if (cmd == LCD_CLEARDISPLAY || cmd == LCD_RETURNHOME) {
-        systick_delay_ms(2);
+        delay_ms(2);
     } else {
         lcd_delay_short();
     }
@@ -86,19 +86,19 @@ void lcd_init(void)
         return;
     }
 
-    systick_delay_ms(50);
+    delay_ms(50);
 
     lcd_write4bits(0x03, 0);
-    systick_delay_ms(5);
+    delay_ms(5);
 
     lcd_write4bits(0x03, 0);
-    systick_delay_ms(1);
+    delay_ms(1);
 
     lcd_write4bits(0x03, 0);
-    systick_delay_ms(1);
+    delay_ms(1);
 
     lcd_write4bits(0x02, 0);
-    systick_delay_ms(1);
+    delay_ms(1);
 
     lcd_command(LCD_FUNCTIONSET | LCD_2LINE);
     lcd_command(LCD_DISPLAYCONTROL | LCD_DISPLAYON);

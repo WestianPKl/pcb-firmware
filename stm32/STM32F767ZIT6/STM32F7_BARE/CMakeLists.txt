@@ -43,29 +43,52 @@ set(cpu_PARAMS
 # Path to vendor CMSIS headers/sources (one level up, shared between projects)
 set(CHIP_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../chip_headers)
 
+
+file(GLOB LWIP_CORE     ${CMAKE_CURRENT_SOURCE_DIR}/lwip/src/core/*.c)
+file(GLOB LWIP_CORE_V4  ${CMAKE_CURRENT_SOURCE_DIR}/lwip/src/core/ipv4/*.c)
+file(GLOB LWIP_API      ${CMAKE_CURRENT_SOURCE_DIR}/lwip/src/api/*.c)
+file(GLOB LWIP_NETIF    ${CMAKE_CURRENT_SOURCE_DIR}/lwip/src/netif/*.c)
+set(LWIP_PORT           ${CMAKE_CURRENT_SOURCE_DIR}/lwip/port/sys_arch.c)
+
 # Sources
 set(sources_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/systick.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/support.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/uart.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/inputs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/outputs.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/timers.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/adc.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/spi.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/i2c.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/dma.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/ld2450.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/bme280.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/sht40.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/can.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/usb.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernet.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/crc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/dma.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/i2c.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/inputs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/iwdg.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Src/wwdg.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/Src/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/rng.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/rtc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/sht40.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/spi.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/timer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/uart.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/Src/wwdg.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernet.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernetif.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_flags.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/Src/usb.c
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Source/Templates/system_stm32f7xx.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/tasks.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/queue.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/list.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/timers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/event_groups.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/stream_buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/port.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/heap_4.c 
+    ${LWIP_CORE}
+    ${LWIP_CORE_V4}
+    ${LWIP_API}
+    ${LWIP_NETIF}
+    ${LWIP_PORT}
 )
 
 # Include directories for all compilers
@@ -73,6 +96,10 @@ set(include_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/Inc
     ${CHIP_HEADERS}/CMSIS/Include
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS
+    ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/lwip/src/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/lwip/port/include
 )
 
 # Include directories for each compiler
@@ -192,6 +219,12 @@ endif()
 
 # Set linker script as a dependency to force re-link if it changes
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES LINK_DEPENDS ${linker_script_SRC})
+
+# Resolve size/objcopy to absolute paths so the post-build step does not
+# depend on the toolchain bin directory being on PATH at build time.
+get_filename_component(TOOLCHAIN_BIN_DIR ${CMAKE_C_COMPILER} DIRECTORY)
+find_program(CMAKE_SIZE    NAMES ${TOOLCHAIN_PREFIX}size    arm-none-eabi-size    HINTS ${TOOLCHAIN_BIN_DIR})
+find_program(CMAKE_OBJCOPY NAMES ${TOOLCHAIN_PREFIX}objcopy arm-none-eabi-objcopy HINTS ${TOOLCHAIN_BIN_DIR})
 
 # Execute post-build to print size, generate hex and bin
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
