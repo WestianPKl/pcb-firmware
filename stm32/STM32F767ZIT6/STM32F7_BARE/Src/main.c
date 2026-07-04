@@ -25,6 +25,7 @@
 #include "iwdg.h"
 #include "timer.h"
 #include "crc.h"
+#include "ssd1306.h"
 
 sht40_data_t sht40_data = {0};
 bme280_data_t bme280_data = {0};
@@ -189,7 +190,7 @@ int main(void)
     xTaskCreate(task_protocol, "protocol", 256, NULL, 2, NULL);
     xTaskCreate(task_can, "can", 256, NULL, 2, &task_can_handler);
     xTaskCreate(task_init, "init", 512, NULL, 4, NULL);
-    
+
     vTaskStartScheduler();
 
     for(;;) {};
@@ -248,6 +249,11 @@ void task_sensor(void *params)
 
     };
     rtc_set_datetime(&local_datetime);
+
+    ssd1306_init();
+    ssd1306_clear_display();
+    ssd1306_display_text("ABC", 0, 0);
+    ssd1306_display_text("DEF", 0, 1);
 
     for(;;)
     {
@@ -318,7 +324,7 @@ void task_sensor(void *params)
         printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n", rtc_date_time.year, rtc_date_time.month, rtc_date_time.day, rtc_date_time.hours, rtc_date_time.minutes, rtc_date_time.seconds);
         printf("BME280: Temp: %.2f C, Hum: %.2f %%, Pres: %.2f hPa\n", bme280_data.temperature / 100.0f, bme280_data.humidity / 100.0f, bme280_data.pressure / 100.0f);
         printf("SHT40: Temp: %.2f C, Hum: %.2f %%\n", sht40_data.temperature / 100.0f, sht40_data.humidity / 100.0f);
-        
+
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
