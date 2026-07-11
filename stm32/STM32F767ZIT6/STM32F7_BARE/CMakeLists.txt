@@ -74,6 +74,9 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernet.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernetif.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/app_flags.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/ssd1306.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/pcf8563t.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/mfrc522.c
     #${CMAKE_CURRENT_SOURCE_DIR}/Src/usb.c
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Source/Templates/system_stm32f7xx.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/tasks.c

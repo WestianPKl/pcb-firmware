@@ -17,7 +17,8 @@
 #include "adc.h"
 #include "i2c.h"
 #include "spi.h"
-#include "bme280.h"
+//#include "bme280.h"
+#include "mfrc522.h"
 #include "sht40.h"
 #include "rtc.h"
 #include "rng.h"
@@ -25,10 +26,11 @@
 #include "iwdg.h"
 #include "timer.h"
 #include "crc.h"
-#include "ssd1306.h"
+//#include "ssd1306.h"
+//#include "pcf8563t.h"
 
 sht40_data_t sht40_data = {0};
-bme280_data_t bme280_data = {0};
+//bme280_data_t bme280_data = {0};
 rtc_datetime_t rtc_date_time = {0};
 
 static uint8_t uart2_tx_buf[uart2_buffer_size];
@@ -230,13 +232,9 @@ void task_blink(void *params)
 void task_sensor(void *params)
 {
     sht40_data_t sht40_data_local = {.temperature = 0, .humidity = 0};
-    bme280_data_t bme280_data_local = {.temperature = 0, .humidity = 0, .pressure = 0};
+    //bme280_data_t bme280_data_local = {.temperature = 0, .humidity = 0, .pressure = 0};
     rtc_datetime_t rtc_datetime_local = {.seconds = 0, .minutes = 0, .hours = 0, .weekday = 0, .day = 0, .month = 0, .year = 0};
-
-    bme280_init();
-
-    rtc_init();
-
+    //rtc_datetime_t pcf_datetime = {.seconds = 0, .minutes = 0, .hours = 0, .weekday = 0, .day = 0, .month = 0, .year = 0};
     rtc_datetime_t local_datetime = 
     {
         .seconds = 0,
@@ -248,21 +246,48 @@ void task_sensor(void *params)
         .year = 2026
 
     };
-    rtc_set_datetime(&local_datetime);
 
-    ssd1306_init();
-    ssd1306_clear_display();
-    ssd1306_display_text("ABC", 0, 0);
-    ssd1306_display_text("DEF", 0, 1);
+    if(xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+    {
+        // bme280_init();
+        // uint8_t v;
+        // for (int i = 0; i < 5; i++) {
+        //     mfrc522_version(&v);
+        //     printf("VERSION[%d] = 0x%02X\n", i, v);
+        // }
+        // uint8_t back;
+        // mfrc522_check(&back);
+        // printf("write 0x26 -> read 0x%02X\n", back);
+        mfrc522_init();
+        xSemaphoreGive(spi_mutex);
+    }
+
+    if (xSemaphoreTake(rtc_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+    {
+        rtc_init();
+        rtc_set_datetime(&local_datetime);
+        xSemaphoreGive(rtc_mutex);
+    }
+
+    // if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+    // {
+    //     ssd1306_init();
+    //     ssd1306_clear_display();
+    //     ssd1306_display_text("ABC", 0, 0);
+    //     ssd1306_display_text("DEF", 0, 1);
+    //     pcf8563t_init();
+    //     pcf8563t_set_datetime(&local_datetime);
+    //     xSemaphoreGive(i2c_mutex);
+    // }
 
     for(;;)
     {
         sht40_data_local.temperature = 0;
         sht40_data_local.humidity = 0;
 
-        bme280_data_local.temperature = 0;
-        bme280_data_local.humidity = 0;
-        bme280_data_local.pressure = 0;
+        // bme280_data_local.temperature = 0;
+        // bme280_data_local.humidity = 0;
+        // bme280_data_local.pressure = 0;
 
         uint32_t rng_value = 0;
         if (rng_get(&rng_value)) {
@@ -285,28 +310,28 @@ void task_sensor(void *params)
             xSemaphoreGive(i2c_mutex);
         }
 
-        if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-        {
-            bme280_trigger_forced();
-            xSemaphoreGive(spi_mutex);
-        }
-        vTaskDelay(pdMS_TO_TICKS(10));
-        if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-        {
-            if (bme280_read_data(&bme280_data_local.temperature, &bme280_data_local.humidity, &bme280_data_local.pressure) != 0)
-            {
-                bme280_data_local.temperature = 0;
-                bme280_data_local.humidity = 0;
-                bme280_data_local.pressure = 0;
-            }
-            xSemaphoreGive(spi_mutex);
-        }
+        // if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        // {
+        //     bme280_trigger_forced();
+        //     xSemaphoreGive(spi_mutex);
+        // }
+        // vTaskDelay(pdMS_TO_TICKS(10));
+        // if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        // {
+        //     if (bme280_read_data(&bme280_data_local.temperature, &bme280_data_local.humidity, &bme280_data_local.pressure) != 0)
+        //     {
+        //         bme280_data_local.temperature = 0;
+        //         bme280_data_local.humidity = 0;
+        //         bme280_data_local.pressure = 0;
+        //     }
+        //     xSemaphoreGive(spi_mutex);
+        // }
 
         if (xSemaphoreTake(sensor_reading_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
         {
-            bme280_data.temperature = bme280_data_local.temperature;
-            bme280_data.humidity = bme280_data_local.humidity;
-            bme280_data.pressure = bme280_data_local.pressure;
+            // bme280_data.temperature = bme280_data_local.temperature;
+            // bme280_data.humidity = bme280_data_local.humidity;
+            // bme280_data.pressure = bme280_data_local.pressure;
 
             sht40_data.temperature = sht40_data_local.temperature;
             sht40_data.humidity = sht40_data_local.humidity;
@@ -322,8 +347,35 @@ void task_sensor(void *params)
         }
         
         printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n", rtc_date_time.year, rtc_date_time.month, rtc_date_time.day, rtc_date_time.hours, rtc_date_time.minutes, rtc_date_time.seconds);
-        printf("BME280: Temp: %.2f C, Hum: %.2f %%, Pres: %.2f hPa\n", bme280_data.temperature / 100.0f, bme280_data.humidity / 100.0f, bme280_data.pressure / 100.0f);
+        // printf("BME280: Temp: %.2f C, Hum: %.2f %%, Pres: %.2f hPa\n", bme280_data.temperature / 100.0f, bme280_data.humidity / 100.0f, bme280_data.pressure / 100.0f);
         printf("SHT40: Temp: %.2f C, Hum: %.2f %%\n", sht40_data.temperature / 100.0f, sht40_data.humidity / 100.0f);
+
+        // if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        // {
+        //     pcf8563t_get_datetime(&pcf_datetime);
+        //     xSemaphoreGive(i2c_mutex);
+        // }
+        
+        // printf("PCF8563T RTC: %04d-%02d-%02d %02d:%02d:%02d\n", pcf_datetime.year, pcf_datetime.month, pcf_datetime.day, pcf_datetime.hours, pcf_datetime.minutes, pcf_datetime.seconds);
+
+        if(xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        {
+            uint8_t atqa[2];
+            uint8_t atqa_len = 2;
+
+            int r = mfrc522_check_atqa(atqa, &atqa_len);
+            if (r == 0 && atqa_len >= 2) {
+                uint8_t uid[10];
+                uint8_t uid_len = 10;
+                mfrc522_read_id(uid, &uid_len);
+                // printf("UID: ");
+                // for (uint8_t i = 0; i < uid_len; i++) {
+                //     printf("%02X ", uid[i]);
+                // }
+                // printf("\n");
+            }
+            xSemaphoreGive(spi_mutex);
+        }
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
