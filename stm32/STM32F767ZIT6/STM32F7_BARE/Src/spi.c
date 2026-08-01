@@ -72,6 +72,7 @@ void spi1_init(void)
     GPIOA->OTYPER &= ~((1U << SPI1_SCK) | (1U << SPI1_MISO));
     GPIOA->OSPEEDR |= ((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)));
     GPIOA->PUPDR &= ~((3U << (SPI1_SCK * 2)) | (3U << (SPI1_MISO * 2)));
+    GPIOA->PUPDR |= (1U << (SPI1_MISO * 2));
 
     GPIOD->MODER &= ~(3U << (SPI1_MOSI * 2));
     GPIOD->MODER |=  (2U << (SPI1_MOSI * 2));
@@ -100,9 +101,17 @@ void spi1_init(void)
     SPI1->CR1 |= SPI_CR1_MSTR | SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_BR_1 | SPI_CR1_BR_2;
 
     SPI1->CR2 |= SPI_CR2_RXDMAEN | SPI_CR2_TXDMAEN | SPI_CR2_FRXTH;
-    SPI1->CR1 |= SPI_CR1_CPOL | SPI_CR1_CPHA;
+    
+    SPI1->CR1 &= ~(SPI_CR1_CPOL | SPI_CR1_CPHA);
     SPI1->CR1 &= ~SPI_CR1_RXONLY;
 
+    SPI1->CR1 |= SPI_CR1_SPE;
+}
+
+void spi1_set_prescaler(uint8_t br)
+{
+    SPI1->CR1 &= ~SPI_CR1_SPE;
+    SPI1->CR1  = (SPI1->CR1 & ~SPI_CR1_BR_Msk) | ((br & 0x7U) << SPI_CR1_BR_Pos);
     SPI1->CR1 |= SPI_CR1_SPE;
 }
 

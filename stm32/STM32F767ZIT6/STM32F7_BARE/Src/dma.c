@@ -100,7 +100,7 @@ void uart3_dma1_rx_start(uint8_t *dst, uint16_t len)
     DMA1_Stream1->NDTR = len;
 
     DMA1_Stream1->CR = 0;
-    DMA1_Stream1->CR |= (1U << DMA_SxCR_CHSEL_Pos);
+    DMA1_Stream1->CR |= (4U << DMA_SxCR_CHSEL_Pos);
     DMA1_Stream1->CR |= (0x0U << DMA_SxCR_DIR_Pos);
     DMA1_Stream1->CR |= DMA_SxCR_MINC | DMA_SxCR_CIRC;
     DMA1_Stream1->CR |= (0x0U << DMA_SxCR_MSIZE_Pos) | (0x0U << DMA_SxCR_PSIZE_Pos);
@@ -195,9 +195,6 @@ void uart2_dma1_tx_start(uint8_t *mem_addr, uint16_t len)
 
     DMA1->HIFCR = DMA_HIFCR_CTCIF6 | DMA_HIFCR_CHTIF6 | DMA_HIFCR_CTEIF6
                 | DMA_HIFCR_CDMEIF6 | DMA_HIFCR_CFEIF6;
-
-    NVIC_SetPriority(DMA1_Stream6_IRQn, 5);
-    NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
     DMA1_Stream6->CR |= DMA_SxCR_EN;
 

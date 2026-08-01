@@ -63,13 +63,15 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/i2c.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/inputs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/iwdg.c
-    #${CMAKE_CURRENT_SOURCE_DIR}/Src/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/lcd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/protocol.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/rng.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/rtc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/sht40.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/spi.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/timer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/uart.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/mcp23017.c
     #${CMAKE_CURRENT_SOURCE_DIR}/Src/wwdg.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernet.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernetif.c
@@ -77,6 +79,9 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ssd1306.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/pcf8563t.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/mfrc522.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/e_paper.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/mcp7940n.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/tca9548.c
     #${CMAKE_CURRENT_SOURCE_DIR}/Src/usb.c
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Source/Templates/system_stm32f7xx.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/tasks.c
@@ -87,6 +92,10 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/stream_buffer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/port.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/heap_4.c 
+    ${CMAKE_CURRENT_SOURCE_DIR}/FatFS/ff.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FatFS/ffsystem.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FatFS/ffunicode.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/FatFS/diskio.c
     ${LWIP_CORE}
     ${LWIP_CORE_V4}
     ${LWIP_API}
@@ -100,6 +109,7 @@ set(include_DIRS
     ${CHIP_HEADERS}/CMSIS/Include
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS
+    ${CMAKE_CURRENT_SOURCE_DIR}/FatFS
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/lwip/src/include
     ${CMAKE_CURRENT_SOURCE_DIR}/lwip/port/include

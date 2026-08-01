@@ -84,6 +84,8 @@ void uart2_rxtx_init(void)
     GPIOD->MODER |=  (0x2U << (UART2_RX * 2U));
     GPIOD->AFR[0] &= ~(0xFU << (6U * 4U));
     GPIOD->AFR[0] |=  (0x7U << (6U * 4U));
+    GPIOD->PUPDR &= ~(0x3U << (UART2_RX * 2U));
+    GPIOD->PUPDR |=  (0x1U << (UART2_RX * 2U));
 
     RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
     (void)RCC->APB1ENR;
@@ -102,6 +104,8 @@ void uart2_rxtx_init(void)
     USART2->CR1 |= USART_CR1_IDLEIE;
     NVIC_SetPriority(USART2_IRQn, 5);
     NVIC_EnableIRQ(USART2_IRQn);
+    NVIC_SetPriority(DMA1_Stream6_IRQn, 5);
+    NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
     USART2->CR1 |= USART_CR1_UE;
 }
@@ -113,7 +117,10 @@ int _write(int fd, const char *buf, int len)
 {   
     xSemaphoreTake(printf_mutex, portMAX_DELAY);
     (void)fd;
-    if (len <= 0) return 0;
+    if (len <= 0) {
+        xSemaphoreGive(printf_mutex);
+        return 0;
+    };
 
     int sent = 0;
     while (sent < len) {
@@ -142,6 +149,10 @@ volatile uint16_t uart2_rx_len = 0;
 
 void USART2_IRQHandler(void)
 {
+    if (USART2->ISR & (USART_ISR_ORE | USART_ISR_FE | USART_ISR_NE)) {
+        USART2->ICR = USART_ICR_ORECF | USART_ICR_FECF | USART_ICR_NCF;
+    }
+
     if (USART2->ISR & USART_ISR_IDLE) {
         USART2->ICR = USART_ICR_IDLECF;
 

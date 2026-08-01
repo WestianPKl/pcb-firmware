@@ -132,7 +132,22 @@ void lcd_send_decimal(int32_t num, uint8_t digits)
 
     if (num < 0) {
         buf[idx++] = '-';
-        n = -n;
+        uint32_t un = (num == INT32_MIN) ? (uint32_t)INT32_MAX + 1U : (uint32_t)(-n);
+        char temp2[10];
+        int temp2_idx = 0;
+        do {
+            temp2[temp2_idx++] = (char)('0' + (un % 10));
+            un /= 10;
+        } while (un > 0 && temp2_idx < 10);
+        while (temp2_idx < digits) {
+            temp2[temp2_idx++] = '0';
+        }
+        for (int i = temp2_idx - 1; i >= 0; i--) {
+            buf[idx++] = temp2[i];
+        }
+        buf[idx] = '\0';
+        lcd_send_string(buf);
+        return;
     }
 
     char temp[10];
@@ -173,6 +188,12 @@ void lcd_send_hex(uint32_t num, uint8_t digits)
 void lcd_send_fixed_x100(int32_t value_x100)
 {
     if (!lcd_present) return;
+    if (value_x100 < 0 && value_x100 > -100) {
+        int32_t fpart = -value_x100;
+        lcd_send_string("-0.");
+        lcd_send_decimal(fpart, 2);
+        return;
+    }
     int32_t ipart = value_x100 / 100;
     int32_t fpart = value_x100 % 100;
     if (fpart < 0) fpart = -fpart;
@@ -228,7 +249,10 @@ void lcd_send_press_int_from_q24_8(uint32_t p_q24_8)
 {
     if (!lcd_present) return;
     uint32_t p_hpa = (p_q24_8 + 128U) / 256U;
-    lcd_send_decimal((int32_t)p_hpa, 5);
+    uint8_t digits = (p_hpa >= 10000U) ? 5U :
+                     (p_hpa >= 1000U)  ? 4U :
+                     (p_hpa >= 100U)   ? 3U : 1U;
+    lcd_send_decimal((int32_t)p_hpa, digits);
 }
 
 void lcd_backlight(uint8_t state)

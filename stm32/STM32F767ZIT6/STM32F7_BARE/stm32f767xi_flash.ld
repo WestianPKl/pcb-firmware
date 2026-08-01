@@ -32,7 +32,7 @@
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 512K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 2048K
+  FLASH    (rx)    : ORIGIN = 0x8008000,   LENGTH = 2016K
 }
 
 /* Entry Point */

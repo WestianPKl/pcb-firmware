@@ -25,6 +25,6 @@ void dwt_init(void);
 void delay_us(uint32_t us);
 void delay_ms(uint32_t ms);
 
-uint8_t crc8_atm(const uint8_t *data, uint32_t len);
+uint16_t crc16_ccitt(const uint8_t *data, uint32_t len);
 
 #endif // SUPPORT_H

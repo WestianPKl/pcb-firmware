@@ -20,6 +20,7 @@ void spi3_cs_high(void);
 void spi3_cs_low(void);
 
 void spi1_init(void);
+void spi1_set_prescaler(uint8_t br);
 void spi3_init(void);
 
 uint8_t spi1_xfer(uint8_t out);

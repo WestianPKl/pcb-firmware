@@ -17,37 +17,29 @@
 #include "adc.h"
 #include "i2c.h"
 #include "spi.h"
-//#include "bme280.h"
-#include "mfrc522.h"
-#include "sht40.h"
 #include "rtc.h"
 #include "rng.h"
 #include "adc.h"
 #include "iwdg.h"
 #include "timer.h"
 #include "crc.h"
+#include "protocol.h"
+#include "mcp7940n.h"
+#include "tca9548.h"
+#include "mcp23017.h"
+//#include "mfrc522.h"
+// #include <string.h>
+// #include "ff.h"
 //#include "ssd1306.h"
-//#include "pcf8563t.h"
+#include "pcf8563t.h"
+//#include "lcd.h"
+//#include "e_paper.h"
 
 sht40_data_t sht40_data = {0};
-//bme280_data_t bme280_data = {0};
+bme280_data_t bme280_data = {0};
 rtc_datetime_t rtc_date_time = {0};
 
-static uint8_t uart2_tx_buf[uart2_buffer_size];
-
 static struct netif gnetif;
-
-uint32_t tx_mailbox;
-
-typedef struct {
-    uint8_t address;
-    uint8_t cmd;
-    uint8_t param;
-    uint8_t len;
-    uint8_t data[256];
-    uint8_t crc;
-    uint8_t uart_flag;
-} protocol_message_t;
 
 QueueHandle_t protocol_queue;
 
@@ -61,6 +53,7 @@ SemaphoreHandle_t printf_mutex;
 TaskHandle_t task_button_handle = NULL;
 TaskHandle_t task_uart2_handle = NULL;
 TaskHandle_t task_can_handler = NULL;
+TaskHandle_t task_can_rx_handler = NULL;
 TaskHandle_t eth_rx_task_handle = NULL;
 
 void task_init(void *params);
@@ -70,10 +63,10 @@ void task_sensor(void *params);
 void task_uart2(void *params);
 void task_protocol(void *params);
 void task_can(void *params);
+void task_can_rx(void *params);
 void task_eth_rx(void *params);
 void task_eth_link(void *params);
 void task_tcp_server(void *params);
-void task_mtqq(void *params);
 
 static void clock_init_216mhz(void)
 {
@@ -162,8 +155,6 @@ int main(void)
     can_filter_accept_all();
     can_start();
 
-    __enable_irq();
-
     i2c_mutex = xSemaphoreCreateMutex();
     spi_mutex = xSemaphoreCreateMutex();
     uart2_mutex = xSemaphoreCreateMutex();
@@ -176,7 +167,7 @@ int main(void)
         for(;;) {};
     }
 
-    protocol_queue = xQueueCreate(4, sizeof(protocol_message_t));
+    protocol_queue = xQueueCreate(4, sizeof(protocol_request_t));
 
     if (protocol_queue == NULL) {
         __disable_irq();
@@ -184,6 +175,8 @@ int main(void)
     }
 
     iwdg_init();
+
+    // lcd_init();
     
     xTaskCreate(task_button, "button", 128, NULL, 2, &task_button_handle);
     xTaskCreate(task_blink, "blink", 128, NULL, 1, NULL);
@@ -191,7 +184,10 @@ int main(void)
     xTaskCreate(task_uart2, "uart2", 256, NULL, 2, &task_uart2_handle);
     xTaskCreate(task_protocol, "protocol", 256, NULL, 2, NULL);
     xTaskCreate(task_can, "can", 256, NULL, 2, &task_can_handler);
+    xTaskCreate(task_can_rx, "can_rx", 256, NULL, 2, &task_can_rx_handler);
     xTaskCreate(task_init, "init", 512, NULL, 4, NULL);
+
+    __enable_irq();
 
     vTaskStartScheduler();
 
@@ -204,7 +200,6 @@ void task_init(void *params)
     xTaskCreate(task_eth_link, "eth_link", 256, NULL, 3, NULL);
     lwip_start();
     xTaskCreate(task_tcp_server, "tcp", 512, NULL, 3, NULL);
-    xTaskCreate(task_mtqq, "mtqq", 512, NULL, 3, NULL);
     vTaskDelete(NULL);
 }
 
@@ -232,9 +227,10 @@ void task_blink(void *params)
 void task_sensor(void *params)
 {
     sht40_data_t sht40_data_local = {.temperature = 0, .humidity = 0};
-    //bme280_data_t bme280_data_local = {.temperature = 0, .humidity = 0, .pressure = 0};
+    bme280_data_t bme280_data_local = {.temperature = 0, .humidity = 0, .pressure = 0};
     rtc_datetime_t rtc_datetime_local = {.seconds = 0, .minutes = 0, .hours = 0, .weekday = 0, .day = 0, .month = 0, .year = 0};
-    //rtc_datetime_t pcf_datetime = {.seconds = 0, .minutes = 0, .hours = 0, .weekday = 0, .day = 0, .month = 0, .year = 0};
+    rtc_datetime_t pcf_datetime = {.seconds = 0, .minutes = 0, .hours = 0, .weekday = 0, .day = 0, .month = 0, .year = 0};
+    rtc_datetime_t mcp_datetime = {.seconds = 0, .minutes = 0, .hours = 0, .weekday = 0, .day = 0, .month = 0, .year = 0};
     rtc_datetime_t local_datetime = 
     {
         .seconds = 0,
@@ -246,21 +242,42 @@ void task_sensor(void *params)
         .year = 2026
 
     };
+    uint8_t pin_state = 0;
 
-    if(xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+    if(xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
-        // bme280_init();
-        // uint8_t v;
-        // for (int i = 0; i < 5; i++) {
-        //     mfrc522_version(&v);
-        //     printf("VERSION[%d] = 0x%02X\n", i, v);
-        // }
-        // uint8_t back;
-        // mfrc522_check(&back);
-        // printf("write 0x26 -> read 0x%02X\n", back);
-        mfrc522_init();
+        bme280_init();
+    //     uint8_t v;
+    //     for (int i = 0; i < 5; i++) {
+    //         mfrc522_version(&v);
+    //         printf("VERSION[%d] = 0x%02X\n", i, v);
+    //     }
+    //     uint8_t back;
+    //     mfrc522_check(&back);
+    //     printf("write 0x26 -> read 0x%02X\n", back);
+    //     mfrc522_init();
         xSemaphoreGive(spi_mutex);
     }
+
+    // e_paper_init();
+    // e_paper_clear(EPD_1IN64G_WHITE);
+    // vTaskDelay(pdMS_TO_TICKS(2000));
+    // static FATFS fs;
+    // static FIL fil;
+    // FRESULT res;
+    // UINT bw;
+    // const char *text = "Hello, World!";
+
+    // res = f_mount(&fs, "", 1);
+    // if (res == FR_OK) {
+    //     res = f_open(&fil, "data.txt", FA_WRITE | FA_CREATE_ALWAYS);
+    //     if (res == FR_OK) {
+    //         f_write(&fil, text, strlen(text), &bw);
+    //         f_close(&fil);
+    //     }
+    //     f_mount(NULL, "", 0);
+    // }
+
 
     if (xSemaphoreTake(rtc_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
     {
@@ -269,30 +286,37 @@ void task_sensor(void *params)
         xSemaphoreGive(rtc_mutex);
     }
 
-    // if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-    // {
+    if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE)
+    {
+        mcp7940n_init(0);
+        mcp7940n_set_datetime(&local_datetime);
     //     ssd1306_init();
     //     ssd1306_clear_display();
     //     ssd1306_display_text("ABC", 0, 0);
     //     ssd1306_display_text("DEF", 0, 1);
-    //     pcf8563t_init();
-    //     pcf8563t_set_datetime(&local_datetime);
-    //     xSemaphoreGive(i2c_mutex);
-    // }
+        if (tca9548_set_channel(2) == 1) {
+            pcf8563t_init();
+            pcf8563t_set_datetime(&local_datetime);
+        }
+        tca9548_disable_all();
+        mcp23017_init();
+        mcp23017_set_pin_direction(0, 0, 0);
+        xSemaphoreGive(i2c_mutex);
+    }
 
     for(;;)
     {
         sht40_data_local.temperature = 0;
         sht40_data_local.humidity = 0;
 
-        // bme280_data_local.temperature = 0;
-        // bme280_data_local.humidity = 0;
-        // bme280_data_local.pressure = 0;
+        bme280_data_local.temperature = 0;
+        bme280_data_local.humidity = 0;
+        bme280_data_local.pressure = 0;
 
-        uint32_t rng_value = 0;
-        if (rng_get(&rng_value)) {
-            printf("RNG value: %lu\n", rng_value);
-        }
+        // uint32_t rng_value = 0;
+        // if (rng_get(&rng_value)) {
+        //     printf("RNG value: %lu\n", rng_value);
+        // }
 
         if (xSemaphoreTake(rtc_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
         {
@@ -300,38 +324,56 @@ void task_sensor(void *params)
             xSemaphoreGive(rtc_mutex);
         }
 
-        if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE)
         {
-            if (sht40_data_read_int(&sht40_data_local.temperature, &sht40_data_local.humidity) != 0)
+            if (tca9548_set_channel(3) != 1 ||
+                sht40_data_read_int(&sht40_data_local.temperature, &sht40_data_local.humidity) != 0)
             {
                 sht40_data_local.temperature = 0;
                 sht40_data_local.humidity = 0;
             }
+            tca9548_disable_all();
+            mcp7940n_get_datetime(&mcp_datetime);
+            if (tca9548_set_channel(2) == 1) {
+                pcf8563t_get_datetime(&pcf_datetime);
+            }
+            tca9548_disable_all();
+
+            if (pin_state == 0) {
+                pin_state = 1;
+                mcp23017_set_pin(0, 0, 1);
+            } else {
+                pin_state = 0;
+                mcp23017_set_pin(0, 0, 0);
+            }
+            // lcd_set_cursor(0, 0);
+            // lcd_send_string("Temp: ");
+            // lcd_send_temp_1dp_from_x100(sht40_data_local.temperature);
             xSemaphoreGive(i2c_mutex);
         }
 
-        // if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-        // {
-        //     bme280_trigger_forced();
-        //     xSemaphoreGive(spi_mutex);
-        // }
-        // vTaskDelay(pdMS_TO_TICKS(10));
-        // if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-        // {
-        //     if (bme280_read_data(&bme280_data_local.temperature, &bme280_data_local.humidity, &bme280_data_local.pressure) != 0)
-        //     {
-        //         bme280_data_local.temperature = 0;
-        //         bme280_data_local.humidity = 0;
-        //         bme280_data_local.pressure = 0;
-        //     }
-        //     xSemaphoreGive(spi_mutex);
-        // }
-
-        if (xSemaphoreTake(sensor_reading_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
         {
-            // bme280_data.temperature = bme280_data_local.temperature;
-            // bme280_data.humidity = bme280_data_local.humidity;
-            // bme280_data.pressure = bme280_data_local.pressure;
+            bme280_trigger_forced();
+            xSemaphoreGive(spi_mutex);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+        if (xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        {
+            if (bme280_read_data(&bme280_data_local.temperature, &bme280_data_local.humidity, &bme280_data_local.pressure) != 0)
+            {
+                bme280_data_local.temperature = 0;
+                bme280_data_local.humidity = 0;
+                bme280_data_local.pressure = 0;
+            }
+            xSemaphoreGive(spi_mutex);
+        }
+
+        if (xSemaphoreTake(sensor_reading_mutex, pdMS_TO_TICKS(10)) == pdTRUE) 
+        {
+            bme280_data.temperature = bme280_data_local.temperature;
+            bme280_data.humidity = bme280_data_local.humidity;
+            bme280_data.pressure = bme280_data_local.pressure;
 
             sht40_data.temperature = sht40_data_local.temperature;
             sht40_data.humidity = sht40_data_local.humidity;
@@ -346,36 +388,31 @@ void task_sensor(void *params)
             xSemaphoreGive(sensor_reading_mutex);
         }
         
-        printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n", rtc_date_time.year, rtc_date_time.month, rtc_date_time.day, rtc_date_time.hours, rtc_date_time.minutes, rtc_date_time.seconds);
+        // printf("RTC: %04d-%02d-%02d %02d:%02d:%02d\n", rtc_date_time.year, rtc_date_time.month, rtc_date_time.day, rtc_date_time.hours, rtc_date_time.minutes, rtc_date_time.seconds);
         // printf("BME280: Temp: %.2f C, Hum: %.2f %%, Pres: %.2f hPa\n", bme280_data.temperature / 100.0f, bme280_data.humidity / 100.0f, bme280_data.pressure / 100.0f);
-        printf("SHT40: Temp: %.2f C, Hum: %.2f %%\n", sht40_data.temperature / 100.0f, sht40_data.humidity / 100.0f);
-
-        // if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-        // {
-        //     pcf8563t_get_datetime(&pcf_datetime);
-        //     xSemaphoreGive(i2c_mutex);
-        // }
-        
+        // printf("SHT40: Temp: %.2f C, Hum: %.2f %%\n", sht40_data.temperature / 100.0f, sht40_data.humidity / 100.0f);
+        // printf("MCP7940N RTC: %04d-%02d-%02d %02d:%02d:%02d\n", mcp_datetime.year, mcp_datetime.month, mcp_datetime.day, mcp_datetime.hours, mcp_datetime.minutes, mcp_datetime.seconds);
         // printf("PCF8563T RTC: %04d-%02d-%02d %02d:%02d:%02d\n", pcf_datetime.year, pcf_datetime.month, pcf_datetime.day, pcf_datetime.hours, pcf_datetime.minutes, pcf_datetime.seconds);
 
-        if(xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
-        {
-            uint8_t atqa[2];
-            uint8_t atqa_len = 2;
 
-            int r = mfrc522_check_atqa(atqa, &atqa_len);
-            if (r == 0 && atqa_len >= 2) {
-                uint8_t uid[10];
-                uint8_t uid_len = 10;
-                mfrc522_read_id(uid, &uid_len);
-                // printf("UID: ");
-                // for (uint8_t i = 0; i < uid_len; i++) {
-                //     printf("%02X ", uid[i]);
-                // }
-                // printf("\n");
-            }
-            xSemaphoreGive(spi_mutex);
-        }
+        // if(xSemaphoreTake(spi_mutex, pdMS_TO_TICKS(100)) == pdTRUE) 
+        // {
+        //     uint8_t atqa[2];
+        //     uint8_t atqa_len = 2;
+
+        //     int r = mfrc522_check_atqa(atqa, &atqa_len);
+        //     if (r == 0 && atqa_len >= 2) {
+        //         uint8_t uid[10];
+        //         uint8_t uid_len = 10;
+        //         mfrc522_read_id(uid, &uid_len);
+        //         printf("UID: ");
+        //         for (uint8_t i = 0; i < uid_len; i++) {
+        //             printf("%02X ", uid[i]);
+        //         }
+        //         printf("\n");
+        //     }
+        //     xSemaphoreGive(spi_mutex);
+        // }
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -388,135 +425,129 @@ void task_uart2(void *params)
             uint16_t n = uart2_rx_len;
             if (n > uart2_buffer_size) n = uart2_buffer_size;
 
-            for (uint16_t i = 0; i < n; i++)
-                uart2_tx_buf[i] = uart2_data[i];
+            uint8_t valid = (n >= 7U)
+                         && (uart2_data[0] == MAGIC)
+                         && (uart2_data[1] <= PROTOCOL_MAX_PAYLOAD)
+                         && (n == (uint16_t)(uart2_data[1] + 7U))
+                         && (uart2_data[2] == ADDRESS);
 
-            if (n < 5U) {
-                uart2_dma1_rx_start(uart2_data, uart2_buffer_size);
-                continue;
+            if (valid) {
+                uint16_t crc = crc16_ccitt(&uart2_data[1], 4U + uart2_data[1]);
+                valid = (crc == (uint16_t)((uart2_data[5 + uart2_data[1]] << 8) | uart2_data[6 + uart2_data[1]]));
             }
 
-            protocol_message_t c;
-            c.address = uart2_tx_buf[0];
-            c.cmd     = uart2_tx_buf[1];
-            c.param   = uart2_tx_buf[2];
-            c.len     = uart2_tx_buf[3];
-            c.uart_flag = 1;
-
-            if ((uint32_t)4U + c.len + 1U > (uint32_t)n) {
-                uart2_dma1_rx_start(uart2_data, uart2_buffer_size);
-                continue;
+            protocol_request_t c;
+            if (valid) {
+                c.magic = uart2_data[0];
+                c.length = uart2_data[1];
+                c.address = uart2_data[2];
+                c.sequence = uart2_data[3];
+                c.command = uart2_data[4];
+                for (uint16_t i = 0; i < c.length; i++) {
+                    c.data[i] = uart2_data[5 + i];
+                }
             }
-
-            for (uint8_t i = 0; i < c.len; i++) {
-                c.data[i] = uart2_tx_buf[4 + i];
-            }
-            c.crc = uart2_tx_buf[4 + c.len];
 
             uart2_dma1_rx_start(uart2_data, uart2_buffer_size);
 
-            xQueueSend(protocol_queue, &c, 0);
+            if (valid) {
+                xQueueSend(protocol_queue, &c, 0);
+            }
         }
     }
 }
 
 void task_protocol(void *params)
 {
-    // [HEADER] [CMD] [PARAM] [LEN] [DATA] [CRC]
-    // HEADER: 0xAA
-    // CMD: 0x01 - SET PWM
-    // PARAM: 0x01 - PWM Channel 1
-    // LEN: 0x01 - Length of DATA
-    // DATA: 0x64 - PWM value (0-100)
-    // CRC: 0x?? - CRC8 of CMD, PARAM, LEN, DATA
-
-    protocol_message_t msg;
+    protocol_request_t msg;
+    static uint8_t frame[PROTOCOL_FRAME_MAX];
     for (;;) {
         if (xQueueReceive(protocol_queue, &msg, portMAX_DELAY) == pdTRUE) {
-            switch(msg.cmd) {
-                case 0x00: 
-                {
-                    uint8_t response[3] = {0xAA, 0xAA, 0xAA};
-
-                    if(msg.uart_flag) {
-                        if (xSemaphoreTake(uart2_mutex, portMAX_DELAY) == pdTRUE) {
-                            uart2_write_dma(response, 3);
-                            xSemaphoreGive(uart2_mutex);
-                        }
-                    }
-                    break;
-                }
-                case 0x01: 
-                {
-                    if (msg.param == 0x01 && msg.len == 1) {
-                        uint8_t pwm_value = msg.data[0];
-                        if (pwm_value > 100) pwm_value = 100;
-                        set_duty_timer_tim4_ch2_pwm(pwm_value);
-                        
-                        uint8_t response[5] = {0xAA, 0x01, 0x01, pwm_value, 0x00};
-                        response[4] = crc8_atm(&response[1], 4);
-                        if(msg.uart_flag) {
-                            if (xSemaphoreTake(uart2_mutex, portMAX_DELAY) == pdTRUE) {
-                                uart2_write_dma(response, 5);
-                                xSemaphoreGive(uart2_mutex);
-                            }
-                        }
-                    }
-                    break;
-                }
+            xSemaphoreTake(uart2_mutex, portMAX_DELAY);
+            for (uint32_t t = 0U; uart2_tx_busy && (t < 50U); t++) {
+                vTaskDelay(1);
             }
+            if (uart2_tx_busy) {
+                uart2_tx_busy = 0;
+            }
+            uint16_t len = protocol_process_request(&msg, frame);
+            uart2_write_dma(frame, len);
+            xSemaphoreGive(uart2_mutex);
         }
     }
 }
 
 void task_can(void *params)
 {
+    TickType_t last_wake = xTaskGetTickCount();
+    bme280_data_t bme280_data_local = {.temperature = 0, .humidity = 0, .pressure = 0};
+    sht40_data_t sht40_data_local = {.temperature = 0, .humidity = 0};
+    rtc_datetime_t rtc_datetime_local = {.seconds = 0, .minutes = 0, .hours = 0, .weekday = 0, .day = 0, .month = 0, .year = 0};
+
     for (;;) {
-        // Cyclic Check
-        can_tx_header_typedef tx_header = {0};
-        uint8_t tx_data[4] = {0x10, 0x20, 0x30, 0x40};
-        tx_header.std_id = 0x10;
-        tx_header.ide = CAN_ID_STD;
-        tx_header.dlc = 4;
+    static uint8_t slot = 0;
 
-        can_add_tx_message(&tx_header, tx_data, &tx_mailbox);
+    switch (slot) {
+            case 0:
+                send_frame_0x10();
+                break;
+            case 1:
+                if (xSemaphoreTake(sensor_reading_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                    bme280_data_local.temperature = bme280_data.temperature;
+                    bme280_data_local.humidity = bme280_data.humidity;
+                    bme280_data_local.pressure = bme280_data.pressure;
+                    xSemaphoreGive(sensor_reading_mutex);
+                }
+                    send_frame_0x30(&bme280_data_local);
 
-        // Cyclic Temperature and Humidity Read
-        // if (xSemaphoreTake(sensor_reading_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        //     can_tx_header_typedef sensor_header_bme = {0};
-        //     uint8_t sensor_data_bme[6] = {0};
-        //     sensor_header_bme.std_id = 0x20;
-        //     sensor_header_bme.ide = CAN_ID_STD;
-        //     sensor_header_bme.dlc = 6;
-
-        //     sensor_data_bme[0] = (bme280_data.temperature >> 8) & 0xFF;
-        //     sensor_data_bme[1] = bme280_data.temperature & 0xFF;
-        //     sensor_data_bme[2] = (bme280_data.humidity >> 8) & 0xFF;
-        //     sensor_data_bme[3] = bme280_data.humidity & 0xFF;
-        //     sensor_data_bme[4] = (bme280_data.pressure >> 8) & 0xFF;
-        //     sensor_data_bme[5] = bme280_data.pressure & 0xFF;
-
-        //     can_add_tx_message(&sensor_header_bme, sensor_data_bme, &tx_mailbox);
-
-        //     can_tx_header_typedef sensor_header_sht = {0};
-        //     uint8_t sensor_data_sht[4] = {0};
-        //     sensor_header_sht.std_id = 0x30;
-        //     sensor_header_sht.ide = CAN_ID_STD;
-        //     sensor_header_sht.dlc = 4;
-
-        //     sensor_data_sht[0] = (sht40_data.temperature >> 8) & 0xFF;
-        //     sensor_data_sht[1] = sht40_data.temperature & 0xFF;
-        //     sensor_data_sht[2] = (sht40_data.humidity >> 8) & 0xFF;
-        //     sensor_data_sht[3] = sht40_data.humidity & 0xFF;
-
-        //     can_add_tx_message(&sensor_header_sht, sensor_data_sht, &tx_mailbox);
-        //     xSemaphoreGive(sensor_reading_mutex);
-        // }
-
-        if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100)) != 0) {
-            printf("Received 0: %d\n", can_rx_data[0]);
+                break;
+            case 2:
+                if (xSemaphoreTake(sensor_reading_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                    sht40_data_local.temperature = sht40_data.temperature;
+                    sht40_data_local.humidity = sht40_data.humidity;
+                    xSemaphoreGive(sensor_reading_mutex);
+                }
+                    send_frame_0x31(&sht40_data_local, &adc_data_buffer[0]);
+                break;
+            case 3: 
+                if (xSemaphoreTake(sensor_reading_mutex, pdMS_TO_TICKS(5)) == pdTRUE) 
+                {
+                    rtc_datetime_local.seconds = rtc_date_time.seconds;
+                    rtc_datetime_local.minutes = rtc_date_time.minutes;
+                    rtc_datetime_local.hours = rtc_date_time.hours;
+                    rtc_datetime_local.weekday = rtc_date_time.weekday;
+                    rtc_datetime_local.day = rtc_date_time.day;
+                    rtc_datetime_local.month = rtc_date_time.month;
+                    rtc_datetime_local.year = rtc_date_time.year;
+                    xSemaphoreGive(sensor_reading_mutex);
+                }
+                send_frame_0x32(&rtc_datetime_local);
+                break;
+            default:
+                break;
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        slot++;
+        if (slot >= 4) {
+            slot = 0;
+        }
+
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(100));
+    }
+}
+
+void task_can_rx(void *params)
+{
+    for (;;) {
+        if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY)) {
+            // printf("CAN RX: ID=0x%04lX \n", can_rx_header.std_id);
+            // for (uint8_t i = 0; i < 8; i++) {
+            //     printf("CAN RX[%d]: 0x%02X\n", i, can_rx_data[i]);
+            // }
+            // printf("\n");
+        }
+
+        vTaskDelay( pdMS_TO_TICKS(10));
     }
 }
 
@@ -567,39 +598,44 @@ void task_tcp_server(void *params)
         while (netconn_recv(newconn, &buf) == ERR_OK) {
             void *data;
             u16_t len;
+            static uint8_t tcp_frame[PROTOCOL_FRAME_MAX];
             do {
                 netbuf_data(buf, &data, &len);
-                netconn_write(newconn, data, len, NETCONN_COPY);
-                protocol_message_t c;
+                uint8_t *d = (uint8_t *)data;
 
-                c.address = ((uint8_t *)data)[0];
-                c.cmd     = ((uint8_t *)data)[1];
-                c.param   = ((uint8_t *)data)[2];
-                c.len     = ((uint8_t *)data)[3];
-                c.uart_flag = 0;
+                uint8_t valid = (len >= 7U)
+                             && (d[0] == MAGIC)
+                             && (d[1] <= PROTOCOL_MAX_PAYLOAD)
+                             && (len == (u16_t)(d[1] + 7U))
+                             && (d[2] == ADDRESS);
 
-                if ((uint32_t)4U + c.len + 1U > (uint32_t)len) {
-                    break;
+                if (valid) {
+                    uint16_t crc = crc16_ccitt(&d[1], 4U + d[1]);
+                    valid = (crc == (uint16_t)((d[5 + d[1]] << 8) | d[6 + d[1]]));
                 }
-                for (uint8_t i = 0; i < c.len; i++) {
-                    c.data[i] = ((uint8_t *)data)[4 + i];
+
+                if (!valid) {
+                    continue;
                 }
-                c.crc = ((uint8_t *)data)[4 + c.len];
-                xQueueSend(protocol_queue, &c, 0);
-                
+
+                protocol_request_t c;
+                c.magic = d[0];
+                c.length = d[1];
+                c.address = d[2];
+                c.sequence = d[3];
+                c.command = d[4];
+                for (uint8_t i = 0; i < c.length; i++) {
+                    c.data[i] = d[5 + i];
+                }
+
+                uint16_t rlen = protocol_process_request(&c, tcp_frame);
+                netconn_write(newconn, tcp_frame, rlen, NETCONN_COPY);
 
             } while (netbuf_next(buf) >= 0);
             netbuf_delete(buf);
         }
         netconn_close(newconn);
         netconn_delete(newconn);
-    }
-}
-
-void task_mtqq(void *params)
-{
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 

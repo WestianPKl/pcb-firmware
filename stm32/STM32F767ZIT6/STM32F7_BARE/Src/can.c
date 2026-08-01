@@ -270,7 +270,7 @@ void CAN1_RX0_IRQHandler(void)
     if ((CAN1->RF0R & CAN_RF0R_FMP0) != 0U) {
         if (can_get_rx_message(CAN_RX_FIFO0, &can_rx_header, can_rx_data) == 0U) {
             BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-            vTaskNotifyGiveFromISR(task_can_handler, &xHigherPriorityTaskWoken);
+            vTaskNotifyGiveFromISR(task_can_rx_handler, &xHigherPriorityTaskWoken);
             portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         } else {
             CAN1->RF0R = CAN_RF0R_RFOM0;

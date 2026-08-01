@@ -25,25 +25,28 @@ static uint8_t bin_to_bcd(uint8_t bin) {
     return (uint8_t)(((bin / 10U) << 4) | (bin % 10U));
 }
 
-void pcf8563t_init(void) {
+int pcf8563t_init(void) {
     uint8_t control_status1[] = {REG_CTRL1, 0x00};
     uint8_t control_status2[] = {REG_CTRL2, 0x00};
     uint8_t timer_1hz[] = {REG_CLKOUT, 0x80 | 0x03};
 
-    i2c2_write(PCF8563T_ADDRESS, control_status1, sizeof(control_status1));
-    i2c2_write(PCF8563T_ADDRESS, control_status2, sizeof(control_status2));
+    if (i2c2_write(PCF8563T_ADDRESS, control_status1, sizeof(control_status1)) != 1U) return -1;
+    if (i2c2_write(PCF8563T_ADDRESS, control_status2, sizeof(control_status2)) != 1U) return -1;
+    if (i2c2_write(PCF8563T_ADDRESS, timer_1hz, sizeof(timer_1hz)) != 1U) return -1;
 
-    i2c2_write(PCF8563T_ADDRESS, timer_1hz, sizeof(timer_1hz));
+    return 1;
 }
 
-void pcf8563t_set_datetime(const rtc_datetime_t *datetime) {
+int pcf8563t_set_datetime(const rtc_datetime_t *datetime) {
+    if (!datetime) return -1;
+
     uint8_t data[7];
 
     if (datetime->seconds > 59 || datetime->minutes > 59 || datetime->hours > 23 ||
         datetime->day < 1 || datetime->day > 31 ||
         datetime->month < 1 || datetime->month > 12 ||
         datetime->weekday > 6) {
-        return;
+        return -1;
     }
 
     uint8_t bcd_sec     = bin_to_bcd((uint8_t)datetime->seconds) & 0x7F;
@@ -71,15 +74,19 @@ void pcf8563t_set_datetime(const rtc_datetime_t *datetime) {
     data[5] = bcd_month;
     data[6] = bcd_year;
 
-    i2c2_write_reg(PCF8563T_ADDRESS, 0x02U, data, sizeof(data));
+    return (i2c2_write_reg(PCF8563T_ADDRESS, 0x02U, data, sizeof(data)) == 1U) ? 1 : -1;
 }
 
 
-void pcf8563t_get_datetime(rtc_datetime_t *datetime) {
+int pcf8563t_get_datetime(rtc_datetime_t *datetime) {
+    if (!datetime) return -1;
+
     uint8_t data[7] = {0};
     rtc_datetime_t temp_datetime;
 
-    i2c2_read_reg(PCF8563T_ADDRESS, 0x02U, data, sizeof(data));
+    uint8_t reg = REG_SECONDS;
+    if (i2c2_write(PCF8563T_ADDRESS, &reg, 1) != 1U) return -1;
+    if (i2c2_read(PCF8563T_ADDRESS, data, sizeof(data)) != 1U) return -1;
 
     temp_datetime.seconds = bcd_to_bin(data[0] & 0x7F);
     temp_datetime.minutes = bcd_to_bin(data[1] & 0x7F);
@@ -101,4 +108,6 @@ void pcf8563t_get_datetime(rtc_datetime_t *datetime) {
     datetime->weekday = temp_datetime.weekday;
     datetime->month = temp_datetime.month;
     datetime->year = temp_datetime.year;
+
+    return 1;
 }
