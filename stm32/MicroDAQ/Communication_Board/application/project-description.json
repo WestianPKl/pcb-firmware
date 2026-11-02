@@ -1,0 +1,246 @@
+{
+  "name": "application",
+  "configurations": [
+    {
+      "name": "Debug",
+      "type": "Executable",
+      "output_filename": "application",
+      "mcu": "STM32C542CCT6",
+      "toolchain_type": "GCC",
+      "toolchain_prefix": "",
+      "sources": [
+        {
+          "path": "Src/syscall.c"
+        },
+        {
+          "path": "Src/sysmem.c"
+        },
+        {
+          "path": "Src/main.c"
+        },
+        {
+          "path": "Src/system_stm32c5xx.c"
+        },
+        {
+          "path": "Src/startup_stm32c542xx.c"
+        }
+      ],
+      "tools": [
+        {
+          "type": "c_assembler",
+          "flags": [
+            "-fdata-sections",
+            "-ffunction-sections",
+            "-std=gnu11",
+            "-Wl,--gc-sections",
+            "-Wno-comment",
+            "-fstack-usage",
+            "-Wall",
+            "-Wextra",
+            "-Wpedantic",
+            "-Wno-unused-parameter",
+            "-O0",
+            "-g3",
+            "-ggdb",
+            "-IInc",
+            "-Ipacks/STMicroelectronics.stm32c5xx_dfp.2.1.0/Include",
+            "-Ipacks/STMicroelectronics.CMSIS.6.3.0/CMSIS/Core/Include",
+            "-DRTE_DEVICE_STARTUP_STM32C5XX",
+            "-DSTM32C542xx",
+            "-DDEBUG",
+            "-x",
+            "assembler-with-cpp",
+            "-MMD",
+            "-MP"
+          ]
+        },
+        {
+          "type": "c_compiler",
+          "flags": [
+            "-fdata-sections",
+            "-ffunction-sections",
+            "-std=gnu11",
+            "-Wl,--gc-sections",
+            "-Wno-comment",
+            "-fstack-usage",
+            "-Wall",
+            "-Wextra",
+            "-Wpedantic",
+            "-Wno-unused-parameter",
+            "-O0",
+            "-g3",
+            "-ggdb",
+            "-IInc",
+            "-Ipacks/STMicroelectronics.stm32c5xx_dfp.2.1.0/Include",
+            "-Ipacks/STMicroelectronics.CMSIS.6.3.0/CMSIS/Core/Include",
+            "-DRTE_DEVICE_STARTUP_STM32C5XX",
+            "-DSTM32C542xx",
+            "-DDEBUG"
+          ]
+        },
+        {
+          "type": "cpp_compiler",
+          "flags": [
+            "-fdata-sections",
+            "-ffunction-sections",
+            "-std=gnu11",
+            "-Wl,--gc-sections",
+            "-Wno-comment",
+            "-fstack-usage",
+            "-Wall",
+            "-Wextra",
+            "-Wpedantic",
+            "-Wno-unused-parameter",
+            "-O0",
+            "-g3",
+            "-ggdb",
+            "-IInc",
+            "-Ipacks/STMicroelectronics.stm32c5xx_dfp.2.1.0/Include",
+            "-Ipacks/STMicroelectronics.CMSIS.6.3.0/CMSIS/Core/Include",
+            "-DRTE_DEVICE_STARTUP_STM32C5XX",
+            "-DSTM32C542xx",
+            "-DDEBUG",
+            "-fno-rtti",
+            "-fno-exceptions",
+            "-fno-threadsafe-statics"
+          ]
+        },
+        {
+          "type": "c_linker",
+          "flags": [
+            "-Tstm32c542xc_flash.ld",
+            "-Wl,-Map=application.map",
+            "-u",
+            "_printf_float",
+            "--specs=nosys.specs",
+            "-Wl,--start-group",
+            "-lc",
+            "-lm",
+            "-lstdc++",
+            "-lsupc++",
+            "-Wl,--end-group",
+            "-Wl,-z,max-page-size=8",
+            "-Wl,--print-memory-usage"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Release",
+      "type": "Executable",
+      "output_filename": "application",
+      "mcu": "STM32C542CCT6",
+      "toolchain_type": "GCC",
+      "toolchain_prefix": "",
+      "sources": [
+        {
+          "path": "Src/syscall.c"
+        },
+        {
+          "path": "Src/sysmem.c"
+        },
+        {
+          "path": "Src/main.c"
+        },
+        {
+          "path": "Src/system_stm32c5xx.c"
+        },
+        {
+          "path": "Src/startup_stm32c542xx.c"
+        }
+      ],
+      "tools": [
+        {
+          "type": "c_assembler",
+          "flags": [
+            "-fdata-sections",
+            "-ffunction-sections",
+            "-std=gnu11",
+            "-Wl,--gc-sections",
+            "-Wno-comment",
+            "-fstack-usage",
+            "-Wall",
+            "-Wextra",
+            "-Wpedantic",
+            "-Wno-unused-parameter",
+            "-Os",
+            "-IInc",
+            "-Ipacks/STMicroelectronics.stm32c5xx_dfp.2.1.0/Include",
+            "-Ipacks/STMicroelectronics.CMSIS.6.3.0/CMSIS/Core/Include",
+            "-DRTE_DEVICE_STARTUP_STM32C5XX",
+            "-DSTM32C542xx",
+            "-x",
+            "assembler-with-cpp",
+            "-MMD",
+            "-MP"
+          ]
+        },
+        {
+          "type": "c_compiler",
+          "flags": [
+            "-fdata-sections",
+            "-ffunction-sections",
+            "-std=gnu11",
+            "-Wl,--gc-sections",
+            "-Wno-comment",
+            "-fstack-usage",
+            "-Wall",
+            "-Wextra",
+            "-Wpedantic",
+            "-Wno-unused-parameter",
+            "-Os",
+            "-IInc",
+            "-Ipacks/STMicroelectronics.stm32c5xx_dfp.2.1.0/Include",
+            "-Ipacks/STMicroelectronics.CMSIS.6.3.0/CMSIS/Core/Include",
+            "-DRTE_DEVICE_STARTUP_STM32C5XX",
+            "-DSTM32C542xx"
+          ]
+        },
+        {
+          "type": "cpp_compiler",
+          "flags": [
+            "-fdata-sections",
+            "-ffunction-sections",
+            "-std=gnu11",
+            "-Wl,--gc-sections",
+            "-Wno-comment",
+            "-fstack-usage",
+            "-Wall",
+            "-Wextra",
+            "-Wpedantic",
+            "-Wno-unused-parameter",
+            "-Os",
+            "-IInc",
+            "-Ipacks/STMicroelectronics.stm32c5xx_dfp.2.1.0/Include",
+            "-Ipacks/STMicroelectronics.CMSIS.6.3.0/CMSIS/Core/Include",
+            "-DRTE_DEVICE_STARTUP_STM32C5XX",
+            "-DSTM32C542xx",
+            "-fno-rtti",
+            "-fno-exceptions",
+            "-fno-threadsafe-statics"
+          ]
+        },
+        {
+          "type": "c_linker",
+          "flags": [
+            "-Tstm32c542xc_flash.ld",
+            "-Wl,-Map=application.map",
+            "-u",
+            "_printf_float",
+            "--specs=nosys.specs",
+            "-Wl,--start-group",
+            "-lc",
+            "-lm",
+            "-lstdc++",
+            "-lsupc++",
+            "-Wl,--end-group",
+            "-Wl,-z,max-page-size=8",
+            "-Wl,--print-memory-usage"
+          ]
+        }
+      ]
+    }
+  ],
+  "source_ide": "Empty",
+  "path": "C:\\Users\\Piotr\\AppData\\Local\\Temp\\stm32cube_for_vscode_empty_project_U7oyDx"
+}

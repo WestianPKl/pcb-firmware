@@ -27,6 +27,8 @@
 #include "mcp7940n.h"
 #include "tca9548.h"
 #include "mcp23017.h"
+// #include "mx25l25673.h"
+#include "fm24cl16b.h"
 //#include "mfrc522.h"
 // #include <string.h>
 // #include "ff.h"
@@ -151,7 +153,7 @@ int main(void)
 
     init_timer_tim4_ch2_pwm();
 
-    can_params_init(CAN_MODE_LOOPBACK);
+    can_params_init(CAN_MODE_NORMAL);
     can_filter_accept_all();
     can_start();
 
@@ -288,12 +290,20 @@ void task_sensor(void *params)
 
     if (xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
+
         mcp7940n_init(0);
         mcp7940n_set_datetime(&local_datetime);
     //     ssd1306_init();
     //     ssd1306_clear_display();
     //     ssd1306_display_text("ABC", 0, 0);
     //     ssd1306_display_text("DEF", 0, 1);
+        if (tca9548_set_channel(0) == 1) {
+            printf("Writing measure interval to FRAM...\n");
+            printf("Writing to FRAM: %04d-%02d-%02d %02d:%02d:%02d\n", local_datetime.year, local_datetime.month, local_datetime.day, local_datetime.hours, local_datetime.minutes, local_datetime.seconds);
+            fm24cl16b_write(FRAM_ADDR_MEASURE_INTERVAL, (const uint8_t *)&local_datetime, sizeof(local_datetime));
+        }
+        tca9548_disable_all();
+
         if (tca9548_set_channel(2) == 1) {
             pcf8563t_init();
             pcf8563t_set_datetime(&local_datetime);
@@ -336,6 +346,24 @@ void task_sensor(void *params)
             mcp7940n_get_datetime(&mcp_datetime);
             if (tca9548_set_channel(2) == 1) {
                 pcf8563t_get_datetime(&pcf_datetime);
+            }
+            tca9548_disable_all();
+
+            if (tca9548_set_channel(0) == 1) {
+                rtc_datetime_t saved_time = 
+                {
+                    .seconds = 0,
+                    .minutes = 0,
+                    .hours = 0,
+                    .weekday = 0,
+                    .day = 0,
+                    .month = 0,
+                    .year = 0000
+
+                };
+                fm24cl16b_read(FRAM_ADDR_MEASURE_INTERVAL, (uint8_t *)&saved_time, sizeof(saved_time));
+                printf("Saved time in FRAM: %04d-%02d-%02d %02d:%02d:%02d\n", saved_time.year, saved_time.month, saved_time.day, saved_time.hours, saved_time.minutes, saved_time.seconds);
+
             }
             tca9548_disable_all();
 
@@ -540,11 +568,11 @@ void task_can_rx(void *params)
 {
     for (;;) {
         if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY)) {
-            // printf("CAN RX: ID=0x%04lX \n", can_rx_header.std_id);
-            // for (uint8_t i = 0; i < 8; i++) {
-            //     printf("CAN RX[%d]: 0x%02X\n", i, can_rx_data[i]);
-            // }
-            // printf("\n");
+            printf("CAN RX: ID=0x%04lX \n", can_rx_header.std_id);
+            for (uint8_t i = 0; i < 8; i++) {
+                printf("CAN RX[%d]: 0x%02X\n", i, can_rx_data[i]);
+            }
+            printf("\n");
         }
 
         vTaskDelay( pdMS_TO_TICKS(10));

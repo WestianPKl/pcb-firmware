@@ -1,0 +1,6 @@
+Podłączasz ST-LINK, wybierasz ST-LINK / SWD i Connect. Następnie:
+1. Wejdź w Erasing & Programming.
+2. W File path wybierz info_page.bin.
+3. Ponieważ to surowy .bin, ustaw Start address:0x0803E000
+4. Zaznacz Verify programming.
+5. Kliknij Start Programming.

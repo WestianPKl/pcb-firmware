@@ -16,6 +16,12 @@
 
 #define I2C1_BUF_SIZE 16U
 
+// I2C_CR2.NBYTES is 8 bits wide; a larger value overflows into RELOAD (bit 24),
+// which stalls the transfer and leaves the bus without a STOP condition.
+#define I2C2_MAX_NBYTES     255U
+// i2c2_write_reg prepends the register/word address byte to the payload.
+#define I2C2_MAX_NBYTES_REG 254U
+
 extern volatile uint8_t i2c1_rx_buffer[I2C1_BUF_SIZE];
 extern volatile uint8_t i2c1_tx_buffer[I2C1_BUF_SIZE];
 extern volatile uint8_t i2c1_rx_idx;

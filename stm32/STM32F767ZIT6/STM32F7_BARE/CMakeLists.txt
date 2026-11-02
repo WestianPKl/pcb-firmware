@@ -72,6 +72,7 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/timer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/uart.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/mcp23017.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/m24c32.c
     #${CMAKE_CURRENT_SOURCE_DIR}/Src/wwdg.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernet.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/ethernetif.c
@@ -82,6 +83,8 @@ set(sources_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/e_paper.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/mcp7940n.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/tca9548.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/fm24cl16b.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/mx25l25673.c
     #${CMAKE_CURRENT_SOURCE_DIR}/Src/usb.c
     ${CHIP_HEADERS}/CMSIS/Device/ST/STM32F7xx/Source/Templates/system_stm32f7xx.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/Src/tasks.c

@@ -1,0 +1,104 @@
+#include "sht40.h"
+#include "i2c.h"
+#include "support.h"
+#include "timer.h"
+
+#define SHT40_ADDR                    0x44U
+#define SHT40_CMD_SINGLE_SHOT_HIGHREP 0xFDU
+#define SHT40_SERIAL_READ             0x89U
+
+static uint8_t sht_crc8(const uint8_t *data, uint8_t len)
+{
+    uint8_t crc = 0xFFU;
+    for (uint8_t j = 0; j < len; j++) {
+        crc ^= data[j];
+        for (uint8_t i = 0; i < 8; i++) {
+            crc = (crc & 0x80U) ? (uint8_t)((crc << 1) ^ 0x31U) : (uint8_t)(crc << 1);
+        }
+    }
+    return crc;
+}
+
+uint32_t sht40_read_serial_number(void)
+{
+    uint8_t cmd = SHT40_SERIAL_READ;
+    uint8_t data[6];
+
+    if (i2c1_write(SHT40_ADDR, &cmd, 1) != 1) return 0U;
+
+    delay_10us(850U);
+
+    if (i2c1_read(SHT40_ADDR, data, 6) != 1) return 0U;
+
+    if (data[2] != sht_crc8(data, 2) || data[5] != sht_crc8(&data[3], 2)) {
+        return 0U;
+    }
+
+    uint32_t serial = ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16);
+    serial |= ((uint32_t)data[3] << 8) | data[4];
+    return serial;
+}
+
+static uint8_t sht40_read_raw(uint16_t *rawT, uint16_t *rawRH)
+{
+    if (!rawT || !rawRH) return 0U;
+
+    uint8_t cmd = SHT40_CMD_SINGLE_SHOT_HIGHREP;
+    if (i2c1_write(SHT40_ADDR, &cmd, 1) != 1) return 0U;
+
+    delay_10us(850U);
+
+    uint8_t data[6];
+    if (i2c1_read(SHT40_ADDR, data, 6) != 1) return 0U;
+
+    if (data[2] != sht_crc8(data, 2) || data[5] != sht_crc8(&data[3], 2)) {
+        return 0U;
+    }
+
+    *rawT  = ((uint16_t)data[0] << 8) | data[1];
+    *rawRH = ((uint16_t)data[3] << 8) | data[4];
+    return 1U;
+}
+
+uint8_t sht40_read_data(float *temp_c, float *rh)
+{
+    if (!temp_c || !rh) return 0U;
+
+    uint16_t rawT, rawRH;
+    uint8_t e = sht40_read_raw(&rawT, &rawRH);
+    if (!e) return 0U;
+
+    *temp_c = -45.0f + 175.0f * ((float)rawT / 65535.0f);
+    float r = -6.0f + 125.0f * ((float)rawRH / 65535.0f);
+
+    if (r < 0.0f)   r = 0.0f;
+    if (r > 100.0f) r = 100.0f;
+
+    *rh = r;
+    return 1U;
+}
+
+uint8_t sht40_data_read_int(int16_t *temp_x100, uint16_t *rh_x100)
+{
+    if (!temp_x100 || !rh_x100) return 0U;
+
+    uint16_t rawT, rawRH;
+    uint8_t e = sht40_read_raw(&rawT, &rawRH);
+    if (!e) return 0U;
+
+    int32_t tx100 = -4500;
+    tx100 += (int32_t)((17500UL * (uint32_t)rawT + 32767UL) / 65535UL);
+
+    int32_t hx100 = -600;
+    hx100 += (int32_t)((12500UL * (uint32_t)rawRH + 32767UL) / 65535UL);
+
+    if (tx100 < -32768) tx100 = -32768;
+    if (tx100 >  32767) tx100 =  32767;
+
+    if (hx100 < 0)     hx100 = 0;
+    if (hx100 > 10000) hx100 = 10000;
+
+    *temp_x100 = (int16_t)tx100;
+    *rh_x100   = (uint16_t)hx100;
+    return 1U;
+}

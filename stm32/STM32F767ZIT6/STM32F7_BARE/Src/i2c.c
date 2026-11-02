@@ -119,7 +119,11 @@ uint8_t i2c2_master_wait(void)
 
 uint8_t i2c2_write(uint8_t addr, const uint8_t *buf, uint16_t len)
 {
-    I2C2->CR2 = ((uint32_t)addr << 1U) | ((uint32_t)len << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+    if (len > I2C2_MAX_NBYTES) return 0;
+
+    I2C2->CR2 = (((uint32_t)addr << 1U) & I2C_CR2_SADD)
+              | (((uint32_t)len << I2C_CR2_NBYTES_Pos) & I2C_CR2_NBYTES)
+              | I2C_CR2_AUTOEND;
     I2C2->CR2 |= I2C_CR2_START;
 
     for (uint16_t i = 0; i < len; i++) {
@@ -133,7 +137,10 @@ uint8_t i2c2_write(uint8_t addr, const uint8_t *buf, uint16_t len)
 
 uint8_t i2c2_read(uint8_t addr, uint8_t *buf, uint16_t len)
 {
-    I2C2->CR2 = ((uint32_t)addr << 1U) | ((uint32_t)len << I2C_CR2_NBYTES_Pos)
+    if (len > I2C2_MAX_NBYTES) return 0;
+
+    I2C2->CR2 = (((uint32_t)addr << 1U) & I2C_CR2_SADD)
+              | (((uint32_t)len << I2C_CR2_NBYTES_Pos) & I2C_CR2_NBYTES)
               | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
     I2C2->CR2 |= I2C_CR2_START;
 
@@ -148,7 +155,11 @@ uint8_t i2c2_read(uint8_t addr, uint8_t *buf, uint16_t len)
 
 uint8_t i2c2_write_reg(uint8_t addr, uint8_t reg, const uint8_t *buf, uint16_t len)
 {
-    I2C2->CR2 = ((uint32_t)addr << 1U) | ((uint32_t)(len + 1U) << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+    if (len > I2C2_MAX_NBYTES_REG) return 0;
+
+    I2C2->CR2 = (((uint32_t)addr << 1U) & I2C_CR2_SADD)
+              | ((((uint32_t)len + 1U) << I2C_CR2_NBYTES_Pos) & I2C_CR2_NBYTES)
+              | I2C_CR2_AUTOEND;
     I2C2->CR2 |= I2C_CR2_START;
 
     uint32_t t = I2C2_TO;
@@ -167,7 +178,10 @@ uint8_t i2c2_write_reg(uint8_t addr, uint8_t reg, const uint8_t *buf, uint16_t l
 
 uint8_t i2c2_read_reg(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len)
 {
-    I2C2->CR2 = ((uint32_t)addr << 1U) | ((uint32_t)1U << I2C_CR2_NBYTES_Pos);
+    if (len > I2C2_MAX_NBYTES) return 0;
+
+    I2C2->CR2 = (((uint32_t)addr << 1U) & I2C_CR2_SADD)
+              | ((uint32_t)1U << I2C_CR2_NBYTES_Pos);
     I2C2->CR2 |= I2C_CR2_START;
 
     uint32_t t = I2C2_TO;
@@ -179,7 +193,8 @@ uint8_t i2c2_read_reg(uint8_t addr, uint8_t reg, uint8_t *buf, uint16_t len)
     while (!(I2C2->ISR & (I2C_ISR_TC | I2C_ISR_NACKF))) { if (!--t) return 0; }
     if (I2C2->ISR & I2C_ISR_NACKF) return i2c2_stop_done();
 
-    I2C2->CR2 = ((uint32_t)addr << 1U) | ((uint32_t)len << I2C_CR2_NBYTES_Pos)
+    I2C2->CR2 = (((uint32_t)addr << 1U) & I2C_CR2_SADD)
+              | (((uint32_t)len << I2C_CR2_NBYTES_Pos) & I2C_CR2_NBYTES)
               | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
     I2C2->CR2 |= I2C_CR2_START;
 
